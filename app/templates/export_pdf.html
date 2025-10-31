@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ note.title }} - PDF Export</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+            @bottom-center {
+                content: "본 문서는 기밀이며 무단 반출·배포 시 법적 책임이 발생합니다.";
+                font-size: 9pt;
+                color: #666;
+            }
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+        }
+        
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 48px;
+            color: rgba(200, 0, 0, 0.1);
+            z-index: -1;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        
+        .signature-section {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 2px solid #333;
+        }
+        
+        .signature-box {
+            display: inline-block;
+            width: 45%;
+            margin: 10px;
+            padding: 20px;
+            border: 1px solid #ddd;
+        }
+        
+        img.signature {
+            max-width: 200px;
+            max-height: 100px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        table th, table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="watermark">
+        WECar 연구개발일지 / {{ note.title }} / 기밀 / 무단배포금지 / {{ export_date.strftime('%Y-%m-%d %H:%M:%S') }} / {{ current_user.email }}
+    </div>
+    
+    {% if note.approval_stage != 'APPROVED' %}
+    <div style="background-color: #fff3cd; border: 2px solid #ffc107; padding: 20px; margin: 20px 0; border-radius: 8px;">
+        <h3 style="color: #856404; margin: 0 0 10px 0;">
+            <i class="bi bi-exclamation-triangle"></i> 주의
+        </h3>
+        <p style="margin: 5px 0; color: #856404;">
+            이 문서는 아직 최종 승인되지 않았습니다 (현재 상태: {{ '검토 대기' if note.approval_stage == 'DRAFT' else '검토자 확인 완료' }}).
+            <br>외부 제출 전 책임자 최종 승인 필요.
+            <br><strong>법적 증빙력은 OWNER 최종 승인 후에만 발생합니다.</strong>
+        </p>
+    </div>
+    {% endif %}
+    
+    <h1>{{ note.title }}</h1>
+    
+    <div style="text-align: center; margin: 30px 0;">
+        <h3>WECar 연구개발일지</h3>
+        <p>과제번호: {{ note.project_code or 'N/A' }}</p>
+        <p>책임자: {{ note.manager_name or 'N/A' }}</p>
+        <p>기간: {{ note.start_date.strftime('%Y-%m-%d') if note.start_date else 'N/A' }} ~ {{ note.end_date.strftime('%Y-%m-%d') if note.end_date else 'N/A' }}</p>
+        <p>PDF 생성일시: {{ export_date.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+    </div>
+    
+    <h2>참여자 정보</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>역할</th>
+                <th>이름</th>
+                <th>이메일</th>
+                <th>소속</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for member in members %}
+            <tr>
+                <td>{{ member.role }}</td>
+                <td>{{ member.user.name }}</td>
+                <td>{{ member.user.email }}</td>
+                <td>{{ member.user.org_name or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <h2>연구 기록 인덱스</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>파일명</th>
+                <th>버전</th>
+                <th>작성일</th>
+                <th>업로더</th>
+                <th>시점인증</th>
+                <th>태그</th>
+                <th>목적/조건</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in files %}
+            <tr>
+                <td>{{ file.display_name }}</td>
+                <td>v{{ file.version_number }}</td>
+                <td>{{ file.created_date.strftime('%Y-%m-%d') }}</td>
+                <td>{{ file.uploader_user.name }}</td>
+                <td>{{ file.timestamp_certified_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>{{ file.tags_list|join(', ') if file.tags_list else '-' }}</td>
+                <td>{{ file.short_desc or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    {% if audit_logs %}
+    <h2>Audit 로그 요약</h2>
+    <p><small>이 과제에 대한 주요 작업 이력 (시간순)</small></p>
+    <table>
+        <thead>
+            <tr>
+                <th>시간</th>
+                <th>사용자</th>
+                <th>액션</th>
+                <th>상세</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in audit_logs %}
+            <tr>
+                <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ log.user.name if log.user else '-' }}</td>
+                <td>{{ log.action_type }}</td>
+                <td>{{ log.meta_json if log.meta_json else '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    
+    <h2>승인/서명</h2>
+    <div class="signature-section">
+        <div class="signature-box">
+            <h3>책임자 (OWNER)</h3>
+            <p><strong>이름:</strong> {{ owner.name }}</p>
+            <p><strong>소속:</strong> {{ owner.org_name or '-' }}</p>
+            {% if owner.signature_path %}
+            <img src="{{ url_for('static', filename=owner.signature_path) if not owner.signature_path.startswith('http') else owner.signature_path }}" class="signature">
+            {% else %}
+            <p style="color: red;">서명 미등록</p>
+            {% endif %}
+            <p><strong>승인일시:</strong> {{ export_date.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+            <p><strong>선언문:</strong></p>
+            <p><small>본인은 본 연구개발일지의 기술 내용이 해당 시점에 실제 수행·관찰된 결과임을 확인하며, 그 진실성과 성실성을 보증합니다.</small></p>
+        </div>
+        
+        {% if reviewer %}
+        <div class="signature-box">
+            <h3>검토자 (REVIEWER)</h3>
+            <p><strong>이름:</strong> {{ reviewer.name }}</p>
+            <p><strong>소속:</strong> {{ reviewer.org_name or '-' }}</p>
+            {% if reviewer.signature_path %}
+            <img src="{{ url_for('static', filename=reviewer.signature_path) if not reviewer.signature_path.startswith('http') else reviewer.signature_path }}" class="signature">
+            {% else %}
+            <p style="color: red;">서명 미등록</p>
+            {% endif %}
+            <p><strong>확인일시:</strong> {{ export_date.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+            <p><strong>선언문:</strong></p>
+            <p><small>본인은 본 연구기록을 확인·검토하였으며, 해당 기록이 명시된 시점에 존재했음을 확인합니다.</small></p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
+

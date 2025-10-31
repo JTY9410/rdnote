@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}워크스페이스 관리 - WECar 연구개발일지{% endblock %}
+
+{% block content %}
+{% include "admin/nav.html" %}
+<h2 class="mb-4">워크스페이스 관리</h2>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>이름</th>
+            <th>Owner</th>
+            <th>멤버수</th>
+            <th>생성일</th>
+            <th>액션</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for workspace in workspaces %}
+        <tr>
+            <td>{{ workspace.name }}</td>
+            <td>{{ workspace.owner.name }}</td>
+            <td>{{ workspace.members.count() }}</td>
+            <td>{{ workspace.created_at.strftime('%Y-%m-%d') }}</td>
+            <td>
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#workspaceModal{{ workspace.id }}">
+                    자세히
+                </button>
+            </td>
+        </tr>
+        
+        <!-- Modal -->
+        <div class="modal fade" id="workspaceModal{{ workspace.id }}" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ workspace.name }} - 멤버 목록</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>이름</th>
+                                    <th>이메일</th>
+                                    <th>역할</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for member in workspace.members %}
+                                <tr>
+                                    <td>{{ member.user.name }}</td>
+                                    <td>{{ member.user.email }}</td>
+                                    <td><span class="badge bg-{{ 'primary' if member.role == 'OWNER' else 'secondary' }}">{{ member.role }}</span></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}
+

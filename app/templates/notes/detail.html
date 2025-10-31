@@ -1,0 +1,505 @@
+{% extends "base.html" %}
+
+{% block title %}{{ note.title }} - WECar 연구개발일지{% endblock %}
+
+{% block extra_css %}
+<style>
+    .file-item {
+        border: 1px solid #ddd;
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 4px;
+        background-color: #f9f9f9;
+    }
+    .upload-area {
+        border: 2px dashed #ccc;
+        padding: 20px;
+        text-align: center;
+        border-radius: 4px;
+        margin: 20px 0;
+    }
+    .upload-area.dragover {
+        border-color: #007bff;
+        background-color: #e7f3ff;
+    }
+    .upload-area:hover {
+        border-color: #0056b3;
+        background-color: #f0f8ff;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">
+            <i class="bi bi-journal-text"></i> {{ note.title }}
+        </h2>
+        <div class="mt-2">
+            {% if note.approval_stage == 'DRAFT' %}
+            <span class="badge bg-warning text-dark fs-6">
+                <i class="bi bi-hourglass-split"></i> 검토 대기
+            </span>
+            {% elif note.approval_stage == 'REVIEWED' %}
+            <span class="badge bg-info text-white fs-6">
+                <i class="bi bi-check-circle"></i> 검토자 확인 완료
+            </span>
+            {% elif note.approval_stage == 'APPROVED' %}
+            <span class="badge bg-success fs-6">
+                <i class="bi bi-shield-check"></i> 최종 승인
+            </span>
+            {% endif %}
+        </div>
+    </div>
+    <div>
+        {% if current_user.id == note.owner_user_id %}
+        <a href="{{ url_for('export.pdf', note_id=note.id) }}" class="btn btn-success">
+            <i class="bi bi-file-pdf"></i> PDF 출력
+        </a>
+        {% if note.reviewer_user_id and note.approval_stage == 'DRAFT' %}
+        <form method="POST" action="{{ url_for('notes.request_review', note_id=note.id) }}" style="display:inline">
+            <button type="submit" class="btn btn-warning">
+                <i class="bi bi-clipboard-check"></i> 검토 요청
+            </button>
+        </form>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<!-- 작성자/참여자 정보 -->
+<div class="mb-3">
+    <div class="row">
+        <div class="col-md-3">
+            <span class="badge bg-primary">OWNER: {{ note.owner_user.name }}</span>
+        </div>
+        <div class="col-md-3">
+            {% if note.reviewer_user_id %}
+            <span class="badge bg-info">REVIEWER: {{ note.reviewer_user.name if note.reviewer_user else '-' }}</span>
+            {% else %}
+            <span class="badge bg-secondary">REVIEWER: 미지정</span>
+            {% endif %}
+        </div>
+        <div class="col-md-6 text-end">
+            {% if current_user.id == note.owner_user_id %}
+            <form method="POST" action="{{ url_for('notes.approve', note_id=note.id) }}" style="display: inline;">
+                <button type="submit" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-stamp"></i> 최종 승인
+                </button>
+            </form>
+            <a href="{{ url_for('export.pdf', note_id=note.id) }}" class="btn btn-success btn-sm">
+                <i class="bi bi-file-pdf"></i> PDF 출력
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5>과제 정보</h5>
+        <p><strong>과제번호:</strong> {{ note.project_code or '-' }}</p>
+        <p><strong>책임자:</strong> {{ note.manager_name or '-' }}</p>
+        <p><strong>기간:</strong> {{ note.start_date.strftime('%Y-%m-%d') if note.start_date else '-' }} ~ {{ note.end_date.strftime('%Y-%m-%d') if note.end_date else '-' }}</p>
+        
+        <h5>참여자</h5>
+        <div class="mb-3">
+            {% for member in members %}
+            <span class="badge bg-{{ 'primary' if member.role == 'OWNER' else 'success' if member.role == 'WRITER' else 'info' if member.role == 'REVIEWER' else 'secondary' }}">{{ member.role }}</span>
+            {% endfor %}
+        </div>
+        
+        {% if current_user.id == note.owner_user_id %}
+        <div class="mt-3">
+            <a href="{{ url_for('export.pdf', note_id=note.id) }}" class="btn btn-success">PDF 출력</a>
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">설정</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 폴더 관리 및 파일 업로드 -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between">
+                <h5 class="mb-0"><i class="bi bi-folder"></i> 폴더</h5>
+                {% if can_write_note(current_user.id, note.id) %}
+                <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#newFolderModal">
+                    <i class="bi bi-plus"></i>
+                </button>
+                {% endif %}
+            </div>
+            <div class="list-group list-group-flush">
+                {% for folder in folders %}
+                <button class="list-group-item list-group-item-action folder-item" data-folder-id="{{ folder.id }}">
+                    <i class="bi bi-folder-fill text-warning"></i> {{ folder.name }}
+                    <span class="badge bg-secondary float-end">{{ folder.file_count }}</span>
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- 파일 업로드 버튼 -->
+        {% if can_write_note(current_user.id, note.id) %}
+        <div class="card mt-3">
+            <div class="card-body text-center">
+                <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                    <i class="bi bi-cloud-upload"></i> 파일 업로드
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-9">
+        <div class="upload-area" id="uploadArea">
+            <i class="bi bi-cloud-upload" style="font-size: 3rem; color: #6c757d;"></i>
+            <p>파일을 드래그 앤 드롭하거나 위 버튼을 클릭하여 업로드</p>
+            <input type="file" id="fileInput" multiple style="display: none;">
+        </div>
+    </div>
+</div>
+
+<!-- 파일 목록 -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-files"></i> 파일 목록 ({{ files|length }})</h5>
+        <div>
+            <input type="text" class="form-control form-control-sm" id="fileSearch" placeholder="파일명 검색..." style="width: 200px; display: inline-block;">
+        </div>
+    </div>
+    <div class="card-body" id="fileList">
+        {% if files %}
+        {% for file in files %}
+        <div class="card mb-3 file-item" data-file-name="{{ file.display_name|lower }}">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div class="mb-2">
+                            <i class="bi bi-file-earmark-fill text-primary"></i> 
+                            <strong>{{ file.display_name }}</strong>
+                            <span class="badge bg-primary ms-2">v{{ file.version_number }}</span>
+                            {% if file.tags %}
+                                {% for tag in file.tags %}
+                                <span class="badge bg-info" onclick="filterByTag('{{ tag.tag }}')" style="cursor: pointer;">
+                                    <i class="bi bi-tag"></i> {{ tag.tag }}
+                                </span>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        
+                        {% if file.short_desc %}
+                        <div class="mb-1">
+                            <i class="bi bi-info-circle text-muted"></i> 
+                            <small>{{ file.short_desc }}</small>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="d-flex gap-3 mb-2">
+                            <small class="text-muted">
+                                <i class="bi bi-calendar"></i> 실험일: {{ file.created_date.strftime('%Y-%m-%d') }}
+                            </small>
+                            <small class="text-muted">
+                                <i class="bi bi-clock"></i> {{ file.uploaded_at.strftime('%Y-%m-%d %H:%M') }}
+                            </small>
+                            <small class="text-muted">
+                                <i class="bi bi-person"></i> {{ file.uploader_user.name if file.uploader_user else '-' }}
+                            </small>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <small class="text-success">
+                                <i class="bi bi-shield-check"></i> 
+                                시점인증: {{ file.timestamp_certified_at.strftime('%Y-%m-%d %H:%M:%S') if file.timestamp_certified_at else '-' }}
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="btn-group" role="group">
+                        <a href="{{ url_for('files.download', file_id=file.id) }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-download"></i> 다운로드
+                        </a>
+                        
+                        {% if can_write_note(current_user.id, note.id) %}
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="#" onclick="showVersionHistory({{ file.id }}); return false;">
+                                        <i class="bi bi-clock-history"></i> 버전 히스토리
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#" onclick="renameFile({{ file.id }}, '{{ file.display_name }}'); return false;">
+                                        <i class="bi bi-pencil"></i> 이름 변경
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#" onclick="editFileTags({{ file.id }}, '{{ file.tags|map(attribute='tag')|join(', ') }}'); return false;">
+                                        <i class="bi bi-tags"></i> 태그 수정
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#" onclick="uploadNewVersion({{ file.id }}); return false;">
+                                        <i class="bi bi-arrow-up-circle"></i> 새 버전 업로드
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item text-danger" href="#" onclick="deleteFile({{ file.id }}, '{{ file.display_name }}'); return false;">
+                                        <i class="bi bi-trash"></i> 삭제
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox" style="font-size: 4rem; color: #dee2e6;"></i>
+            <p class="text-muted mt-3">등록된 파일이 없습니다.</p>
+            {% if can_write_note(current_user.id, note.id) %}
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                <i class="bi bi-cloud-upload"></i> 파일 업로드
+            </button>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5>활동 로그</h5>
+    </div>
+    <div class="card-body">
+        {% for log in audit_logs %}
+        <p><small>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</small> - {{ log.action_type }}</p>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- 파일 업로드 Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-cloud-upload"></i> 파일 업로드</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="uploadForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="folderSelect" class="form-label">폴더 선택 *</label>
+                        <select class="form-select" id="folderSelect" required>
+                            <option value="">폴더를 선택하세요</option>
+                            {% for folder in folders %}
+                            <option value="{{ folder.id }}">{{ folder.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="uploadFiles" class="form-label">파일 선택</label>
+                        <input type="file" class="form-control" id="uploadFiles" multiple>
+                    </div>
+                    
+                    <table class="table table-sm" id="uploadFileList">
+                        <thead>
+                            <tr>
+                                <th>파일명</th>
+                                <th>크기</th>
+                                <th>실험일 *</th>
+                                <th>목적</th>
+                                <th>태그</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload"></i> 업로드
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 새 폴더 Modal -->
+<div class="modal fade" id="newFolderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="bi bi-folder-plus"></i> 새 폴더</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('folders.create', note_id=note.id) }}">
+                <div class="modal-body">
+                    <input type="hidden" name="note_id" value="{{ note.id }}">
+                    <div class="mb-3">
+                        <label for="folderName" class="form-label">폴더명</label>
+                        <input type="text" class="form-control" id="folderName" name="name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check"></i> 생성
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 버전 히스토리 Modal -->
+<div class="modal fade" id="versionHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="bi bi-clock-history"></i> 버전 히스토리</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="versionHistoryContent">
+                <p class="text-muted text-center">로딩 중...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 파일 삭제 Modal -->
+<div class="modal fade" id="deleteFileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> 파일 삭제</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="deleteFileForm">
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <strong>경고:</strong> 삭제는 복구 불가능하며, 영구적으로 감사 로그에 기록됩니다.
+                        <br><small>연구개발일지는 장기 보존 의무 대상입니다. 삭제 시 법적 증빙력 상실 가능합니다.</small>
+                    </div>
+                    <p>삭제할 파일: <strong id="deleteFileName"></strong></p>
+                    <div class="mb-3">
+                        <label for="deleteReason" class="form-label">삭제 사유 *</label>
+                        <textarea class="form-control" id="deleteReason" rows="3" required 
+                                  placeholder="삭제 사유를 입력하세요"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-danger">삭제</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/note-detail.js') }}"></script>
+<script>
+// 파일 검색
+document.getElementById('fileSearch')?.addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const fileItems = document.querySelectorAll('.file-item');
+    fileItems.forEach(item => {
+        const fileName = item.dataset.fileName || '';
+        if (fileName.includes(searchTerm)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+});
+
+// 태그 필터링
+window.filterByTag = function(tag) {
+    document.getElementById('fileSearch').value = tag;
+    document.getElementById('fileSearch').dispatchEvent(new Event('input'));
+};
+
+// 파일 삭제
+window.deleteFile = function(fileId, fileName) {
+    document.getElementById('deleteFileName').textContent = fileName;
+    const modal = new bootstrap.Modal(document.getElementById('deleteFileModal'));
+    modal.show();
+    
+    document.getElementById('deleteFileForm').onsubmit = (e) => {
+        e.preventDefault();
+        const reason = document.getElementById('deleteReason').value;
+        
+        fetch(`/files/${fileId}`, {
+            method: 'DELETE',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({reason: reason})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                modal.hide();
+                location.reload();
+            } else {
+                alert('삭제 실패: ' + (data.error || '알 수 없는 오류'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('삭제 중 오류가 발생했습니다.');
+        });
+    };
+};
+
+// 버전 히스토리 표시
+window.showVersionHistory = async function(fileId) {
+    const modal = new bootstrap.Modal(document.getElementById('versionHistoryModal'));
+    const content = document.getElementById('versionHistoryContent');
+    
+    content.innerHTML = '<p class="text-muted text-center"><i class="bi bi-hourglass-split"></i> 로딩 중...</p>';
+    modal.show();
+    
+    try {
+        const response = await fetch(`/files/${fileId}/versions`);
+        const data = await response.json();
+        
+        if (data.versions && data.versions.length > 0) {
+            let html = '<div class="table-responsive"><table class="table table-sm">';
+            html += '<thead><tr><th>버전</th><th>업로드 시각</th><th>업로더</th><th>크기</th><th>시점인증</th><th>액션</th></tr></thead><tbody>';
+            
+            data.versions.forEach(version => {
+                const sizeMB = (version.size / 1024 / 1024).toFixed(2);
+                html += `<tr>
+                    <td><span class="badge bg-primary">v${version.version_number}</span></td>
+                    <td>${new Date(version.uploaded_at).toLocaleString('ko-KR')}</td>
+                    <td>${version.uploader}</td>
+                    <td>${sizeMB} MB</td>
+                    <td><small class="text-success"><i class="bi bi-shield-check"></i> ${version.timestamp_certified_at ? new Date(version.timestamp_certified_at).toLocaleString('ko-KR') : '-'}</small></td>
+                    <td><a href="/files/${version.id}/download" class="btn btn-sm btn-outline-primary">다운로드</a></td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table></div>';
+            content.innerHTML = html;
+        } else {
+            content.innerHTML = '<p class="text-muted text-center">버전 정보가 없습니다.</p>';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        content.innerHTML = '<p class="text-danger text-center">버전 히스토리를 불러오지 못했습니다.</p>';
+    }
+};
+</script>
+{% endblock %}
+

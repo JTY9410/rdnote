@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: wecar_user
+      POSTGRES_PASSWORD: wecar_pass
+      POSTGRES_DB: wecar_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wecar_user -d wecar_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "5501:5000"
+    environment:
+      DATABASE_URL: postgresql://wecar_user:wecar_pass@db:5432/wecar_db
+      SECRET_KEY: wecar-secret-key-change-in-production
+      FLASK_ENV: production
+      UPLOAD_FOLDER: uploads
+      EXPORT_FOLDER: exports
+    volumes:
+      - ./uploads:/app/uploads
+      - ./exports:/app/exports
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/auth/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        sleep 5 &&
+        python3 init_db.py || echo 'Init script completed' &&
+        gunicorn -w 4 -b 0.0.0.0:5000 --timeout 120 wsgi:app
+      "
+
+    # Auto-rebuild/restart on source changes (Docker Compose v2.22+)
+    develop:
+      watch:
+        - path: .
+          action: rebuild
+
+volumes:
+  postgres_data:
+

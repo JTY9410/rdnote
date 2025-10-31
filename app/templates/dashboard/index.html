@@ -1,0 +1,447 @@
+{% extends "base.html" %}
+
+{% block title %}대시보드 - WECar 연구개발일지{% endblock %}
+
+{% block extra_css %}
+<style>
+    .welcome-banner {
+        background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+        color: white;
+        padding: 50px 40px;
+        border-radius: 28px;
+        margin-bottom: 40px;
+        box-shadow: 0 12px 40px rgba(220, 53, 69, 0.25);
+        position: relative;
+        overflow: hidden;
+    }
+    .welcome-banner::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 300%;
+        height: 300%;
+        background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+        animation: welcomePulse 6s ease-in-out infinite;
+    }
+    @keyframes welcomePulse {
+        0%, 100% {
+            transform: scale(1) rotate(0deg);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1.1) rotate(180deg);
+            opacity: 0.8;
+        }
+    }
+    .welcome-banner h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 12px;
+        letter-spacing: -0.02em;
+        position: relative;
+        z-index: 1;
+    }
+    .welcome-banner p {
+        position: relative;
+        z-index: 1;
+        font-weight: 500;
+        font-size: 1.1rem;
+    }
+    .quick-action {
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 20px;
+        padding: 24px;
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    .quick-action:hover {
+        color: var(--primary-color) !important;
+        transform: translateY(-8px) scale(1.05);
+        box-shadow: 0 12px 32px rgba(220, 53, 69, 0.2);
+        border-color: var(--primary-color);
+    }
+    .quick-action i {
+        display: inline-block;
+        transition: transform 0.3s ease;
+    }
+    .quick-action:hover i {
+        transform: scale(1.2) rotate(5deg);
+    }
+    .btn-light {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border: none;
+        font-weight: 700;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        position: relative;
+        z-index: 1;
+    }
+    .btn-light:hover {
+        background: rgba(255, 255, 255, 1);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+    .alert-warning {
+        border-radius: 20px;
+        border-left: 4px solid #ffc107;
+    }
+    .list-group-item {
+        font-weight: 500;
+    }
+</style>
+<!-- File Detail Modal -->
+<div class="modal fade" id="fileDetailModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-file-earmark-text"></i> 파일 상세</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="fileDetailBody">로딩 중...</div>
+            <div class="modal-footer">
+                <a id="fileDownloadBtn" class="btn btn-primary" href="#" target="_blank">원본 다운로드</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.recent-upload-item').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const fileId = btn.getAttribute('data-file-id');
+        const res = await fetch(`/files/${fileId}/meta`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const f = data.file || {};
+        document.getElementById('fileDetailBody').innerHTML = `
+            <div><strong>${f.name||''}</strong></div>
+            <div class=\"text-muted\">원본: ${f.original || '-'} | 버전 v${f.version||1}</div>
+            <div class=\"mt-2\">작성일: ${f.created_date || '-'} | 업로드: ${f.uploaded_at || '-'}</div>
+            <div class=\"mt-2\">크기: ${Math.round(((f.size_bytes||0)/1024/1024)*100)/100} MB</div>
+            <div class=\"mt-2\"><small>SHA-256: ${f.hash || '-'}</small></div>
+        `;
+        document.getElementById('fileDownloadBtn').href = `/files/${fileId}/download`;
+        new bootstrap.Modal(document.getElementById('fileDetailModal')).show();
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}
+
+{% block content %}
+<div class="welcome-banner">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h1><i class="bi bi-greeting"></i> 환영합니다, {{ current_user.name }}님!</h1>
+            <p class="mb-0" style="opacity: 0.95;">연구개발일지에 오신 것을 환영합니다. 전자연구노트로 연구의 모든 단계를 안전하게 기록하세요.</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('notes.new') }}" class="btn btn-light btn-lg px-4">
+                <i class="bi bi-plus-circle"></i> 새 연구과제 만들기
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- 연구노트 빠른 시작 가이드 -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-journal-plus"></i> 연구노트 빠른 시작</h5>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('notes.new') }}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-circle"></i> 작성하기
+            </a>
+            <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#quickUploadModal">
+                <i class="bi bi-cloud-upload"></i> 연구파일 추가
+            </button>
+            <a href="{{ url_for('help.guno_guide') }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-book"></i> 작성 가이드
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <strong>1) 작성</strong><br>
+                        과제 정보, 참여자, 기간 설정
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <strong>2) 업로드</strong><br>
+                        폴더 선택 후 증빙 자료 업로드
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <strong>3) 검토/승인</strong><br>
+                        REVIEWER 지정 및 OWNER 승인
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <strong>4) PDF 출력</strong><br>
+                        워터마크/서명 포함 PDF 출력
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-3">
+            <a href="{{ url_for('help.index') }}" class="btn btn-link p-0">도움말 센터</a>
+        </div>
+    </div>
+
+{% if warnings %}
+<div class="alert alert-warning border-0 shadow-sm">
+    <h5 class="mb-3"><i class="bi bi-exclamation-triangle-fill"></i> 알림</h5>
+    <ul class="mb-0">
+        {% for warning in warnings %}
+        <li>{{ warning }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<!-- 통계 카드 -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <h3>{{ workspaces|length }}</h3>
+            <p><i class="bi bi-people"></i> 워크스페이스</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #208037 100%);">
+            <h3>{{ notes|length }}</h3>
+            <p><i class="bi bi-journal-bookmark"></i> 연구과제</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card" style="background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%);">
+            <h3>{{ recent_uploads|length }}</h3>
+            <p><i class="bi bi-upload"></i> 최근 업로드</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card" style="background: linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%);">
+            <div class="mb-2">
+                <i class="bi bi-download"></i> 
+                <span style="font-size: 2.5rem; font-weight: 700;">{{ today_downloads }}</span>/{{ daily_limit }}
+            </div>
+            <p>오늘 다운로드</p>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Upload Modal -->
+<div class="modal fade" id="quickUploadModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-cloud-upload"></i> 연구파일 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="quickUploadForm" method="POST" action="{{ url_for('dashboard.quick_upload') }}" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">연구노트 선택 *</label>
+                        <select class="form-select" name="note_id" required>
+                            <option value="">연구노트를 선택해주세요</option>
+                            {% for note in notes %}
+                            <option value="{{ note.id }}">{{ note.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label">작성일자 *</label>
+                            <input type="date" class="form-control" name="created_date" value="{{ (datetime.utcnow()).strftime('%Y-%m-%d') }}" required>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">파일 *</label>
+                            <input type="file" class="form-control" name="files[]" multiple required>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <input type="text" class="form-control" name="short_desc" placeholder="실험 목적 (선택)">
+                    </div>
+                    <div class="mt-2">
+                        <input type="text" class="form-control" name="tags" placeholder="태그1,태그2 (선택)">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">업로드</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- 빠른 작업 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-lightning-charge"></i> 빠른 작업</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <a href="{{ url_for('notes.new') }}" class="quick-action d-block text-center p-3 bg-light rounded">
+                            <i class="bi bi-plus-circle" style="font-size: 2rem; color: var(--primary-color);"></i>
+                            <p class="mb-0 mt-2"><strong>새 연구과제</strong></p>
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('workspaces.index') }}" class="quick-action d-block text-center p-3 bg-light rounded">
+                            <i class="bi bi-people-fill" style="font-size: 2rem; color: var(--primary-color);"></i>
+                            <p class="mb-0 mt-2"><strong>워크스페이스</strong></p>
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('profile.index') }}" class="quick-action d-block text-center p-3 bg-light rounded">
+                            <i class="bi bi-person" style="font-size: 2rem; color: var(--primary-color);"></i>
+                            <p class="mb-0 mt-2"><strong>내 프로필</strong></p>
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('help.index') }}" class="quick-action d-block text-center p-3 bg-light rounded">
+                            <i class="bi bi-question-circle" style="font-size: 2rem; color: var(--primary-color);"></i>
+                            <p class="mb-0 mt-2"><strong>도움말</strong></p>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 워크스페이스 및 연구과제 -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-people"></i> 내 워크스페이스</h5>
+                <a href="{{ url_for('workspaces.index') }}" class="btn btn-sm btn-outline-primary">
+                    전체 보기 <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            <div class="card-body">
+                {% if workspaces %}
+                <div class="list-group list-group-flush">
+                    {% for workspace in workspaces[:5] %}
+                    <a href="{{ url_for('workspaces.detail', workspace_id=workspace.id) }}" class="list-group-item list-group-item-action">
+                        <i class="bi bi-folder"></i> {{ workspace.name }}
+                        <span class="badge bg-secondary float-end">{{ workspace.notes_count }} 과제</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-3">워크스페이스가 없습니다.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-journal-bookmark"></i> 내 연구과제</h5>
+                <a href="{{ url_for('notes.new') }}" class="btn btn-sm btn-success">
+                    <i class="bi bi-plus"></i> 새로 만들기
+                </a>
+            </div>
+            <div class="card-body">
+                {% if notes %}
+                <div class="list-group list-group-flush">
+                    {% for note in notes[:5] %}
+                    <a href="{{ url_for('notes.detail', note_id=note.id) }}" class="list-group-item list-group-item-action">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <i class="bi bi-file-text"></i> {{ note.title }}
+                                <br><small class="text-muted">{{ note.project_code }}</small>
+                            </div>
+                            <span class="badge bg-info">{{ note.role if note.role else 'READER' }}</span>
+                        </div>
+                        <div class="progress mt-2" style="height:6px;">
+                            {% set p = note_progress.get(note.id) %}
+                            {% set val = (25 + (25 if p.has_files else 0) + (25 if p.has_reviewer else 0) + (25 if p.is_approved else 0)) %}
+                            <div class="progress-bar" role="progressbar" style="width: {{ val }}%"></div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-3">연구과제가 없습니다. <a href="{{ url_for('notes.new') }}">새로 만들어보세요!</a></p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 최근 활동 -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-upload"></i> 최근 업로드</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_uploads %}
+                <div class="list-group list-group-flush">
+                    {% for file in recent_uploads[:5] %}
+                    <button type="button" class="list-group-item recent-upload-item" data-file-id="{{ file.id }}">
+                        <i class="bi bi-file-earmark-fill text-primary"></i> <strong>{{ file.display_name }}</strong>
+                        <br><small class="text-muted">
+                            <i class="bi bi-calendar"></i> {{ file.uploaded_at.strftime('%Y-%m-%d %H:%M') }}
+                            {% if file.note %}| {{ file.note.title }}{% endif %}
+                        </small>
+                    </button>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-3">최근 업로드된 파일이 없습니다.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-download"></i> 최근 다운로드</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_downloads %}
+                <div class="list-group list-group-flush">
+                    {% for download in recent_downloads[:5] %}
+                    <div class="list-group-item">
+                        <i class="bi bi-{% if download.download_type == 'PDF_EXPORT' %}file-pdf{% else %}download{% endif %} text-success"></i> 
+                        <strong>{{ download.download_type }}</strong>
+                        <br><small class="text-muted">
+                            <i class="bi bi-calendar"></i> {{ download.created_at.strftime('%Y-%m-%d %H:%M') }}
+                        </small>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-3">최근 다운로드 기록이 없습니다.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+

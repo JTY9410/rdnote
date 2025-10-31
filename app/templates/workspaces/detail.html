@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}{{ workspace.name }} - WECar 연구개발일지{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">
+        <i class="bi bi-folder"></i> {{ workspace.name }}
+    </h2>
+    <div>
+        <a href="{{ url_for('notes.new', workspace_id=workspace.id) }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> 새 연구과제 만들기
+        </a>
+        <a href="{{ url_for('workspaces.index') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> 목록으로
+        </a>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> 정보</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">
+                    <i class="bi bi-person-badge"></i> <strong>Owner:</strong> {{ workspace.owner.name }}
+                </p>
+                <p class="mb-2">
+                    <i class="bi bi-people"></i> <strong>멤버수:</strong> {{ members|length }}명
+                </p>
+                <p class="mb-0">
+                    <i class="bi bi-calendar"></i> <strong>생성일:</strong> {{ workspace.created_at.strftime('%Y-%m-%d') }}
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-people"></i> 멤버 관리</h5>
+                {% if current_user.is_admin or members|selectattr('user_id', 'equalto', current_user.id)|selectattr('role', 'equalto', 'OWNER')|list %}
+                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#inviteModal">
+                    <i class="bi bi-person-plus"></i> 멤버 초대
+                </button>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>이름</th>
+                                <th>이메일</th>
+                                <th>역할</th>
+                                <th>액션</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for member in members %}
+                            <tr>
+                                <td>
+                                    <i class="bi bi-person"></i> {{ member.user.name }}
+                                </td>
+                                <td>{{ member.user.email }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'primary' if member.role == 'OWNER' else 'secondary' }}">
+                                        {{ member.role }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if current_user.is_admin or members|selectattr('user_id', 'equalto', current_user.id)|selectattr('role', 'equalto', 'OWNER')|list %}
+                                    {% if member.role != 'OWNER' %}
+                                    <form method="POST" action="{{ url_for('workspaces.update_member_role', workspace_id=workspace.id) }}" style="display: inline;" onsubmit="return confirm('멤버를 제거하시겠습니까?');">
+                                        <input type="hidden" name="member_id" value="{{ member.id }}">
+                                        <input type="hidden" name="action" value="remove">
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            <i class="bi bi-trash"></i> 제거
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h4 class="mb-3"><i class="bi bi-journal-text"></i> 연구과제</h4>
+<div class="card mb-4">
+    <div class="card-body">
+        {% if notes %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>과제명</th>
+                        <th>과제번호</th>
+                        <th>Owner</th>
+                        <th>기간</th>
+                        <th>생성일</th>
+                        <th>액션</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for note in notes %}
+                    <tr>
+                        <td>
+                            <i class="bi bi-file-text"></i> <strong>{{ note.title }}</strong>
+                        </td>
+                        <td>{{ note.project_code or '-' }}</td>
+                        <td>
+                            <i class="bi bi-person"></i> {{ note.owner_user.name if note.owner_user else '-' }}
+                        </td>
+                        <td>
+                            {% if note.start_date and note.end_date %}
+                                {{ note.start_date.strftime('%Y-%m-%d') }} ~ {{ note.end_date.strftime('%Y-%m-%d') }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ note.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <a href="{{ url_for('notes.detail', note_id=note.id) }}" class="btn btn-sm btn-primary">
+                                <i class="bi bi-box-arrow-right"></i> 열기
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-center text-muted py-5">
+            <i class="bi bi-folder-x" style="font-size: 3rem;"></i><br>
+            연구과제가 없습니다. 새로 만들어보세요!
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 멤버 초대 Modal -->
+<div class="modal fade" id="inviteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-person-plus"></i> 멤버 초대</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('workspaces.invite', workspace_id=workspace.id) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="email" class="form-label">초대할 사용자 이메일</label>
+                        <input type="email" class="form-control" id="email" name="email" required placeholder="user@example.com">
+                        <small class="text-muted">등록된 사용자 이메일을 입력하세요.</small>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> 사용자가 먼저 회원가입을 완료해야 합니다.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-send"></i> 초대하기
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+

@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}로그인 - WECar 연구개발일지{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-wrapper {
+        min-height: calc(100vh - 200px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 0;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+    }
+    .login-card {
+        border-radius: 32px;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(20px);
+        background: rgba(255, 255, 255, 0.95);
+    }
+    .login-header {
+        background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+        color: white;
+        padding: 50px 40px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    .login-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+        animation: pulse 4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1.1);
+            opacity: 0.8;
+        }
+    }
+    .login-header h2 {
+        position: relative;
+        z-index: 1;
+        font-weight: 800;
+        font-size: 2rem;
+        letter-spacing: -0.02em;
+    }
+    .login-header p {
+        position: relative;
+        z-index: 1;
+        font-weight: 600;
+        opacity: 0.95;
+    }
+    .login-header img {
+        height: 90px;
+        margin-bottom: 20px;
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+        position: relative;
+        z-index: 1;
+    }
+    .form-floating label {
+        color: #6c757d;
+        font-weight: 500;
+    }
+    .form-floating > .form-control:focus ~ label,
+    .form-floating > .form-control:not(:placeholder-shown) ~ label,
+    .form-floating > .form-select ~ label {
+        opacity: 1;
+        transform: scale(0.85) translateY(-0.5rem) translateX(0.15rem);
+        color: var(--primary-color);
+        font-weight: 600;
+    }
+    .login-footer {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 30px 40px;
+        text-align: center;
+        border-top: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    .card-body {
+        padding: 3rem 2.5rem;
+    }
+    .btn-primary {
+        padding: 14px 40px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+    }
+    .alert-light {
+        background: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(220, 53, 69, 0.1);
+        border-radius: 12px;
+    }
+    /* Enhanced input styling */
+    .form-control {
+        border-radius: 14px;
+        padding: 1rem 1.25rem;
+        font-size: 1rem;
+        border: 2px solid #e0e4e8;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 6px rgba(220, 53, 69, 0.08);
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-wrapper">
+    <div class="row justify-content-center w-100">
+        <div class="col-md-5 col-lg-4">
+            <div class="card login-card shadow-lg">
+                <div class="login-header">
+                    <img src="{{ url_for('static', filename='logo.png') }}" alt="weCar" onerror="this.style.display='none'">
+                    <h2 class="mb-0">연구개발일지</h2>
+                    <p class="mb-0 mt-2" style="opacity: 0.95;">전자연구노트 시스템</p>
+                </div>
+                
+                <div class="card-body p-5">
+                    <form method="POST" action="{{ url_for('auth.login') }}" class="needs-validation" novalidate>
+                        <div class="form-floating mb-3">
+                            <input type="email" class="form-control" id="email" name="email" placeholder="이메일" required>
+                            <label for="email"><i class="bi bi-envelope"></i> 이메일</label>
+                            <div class="invalid-feedback">올바른 이메일을 입력해주세요.</div>
+                        </div>
+                        
+                        <div class="form-floating mb-3">
+                            <input type="password" class="form-control" id="password" name="password" placeholder="비밀번호" required>
+                            <label for="password"><i class="bi bi-lock"></i> 비밀번호</label>
+                            <div class="invalid-feedback">비밀번호를 입력해주세요.</div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100 py-3 fs-5">
+                            <i class="bi bi-box-arrow-in-right"></i> 로그인
+                        </button>
+                        
+                        <div class="mt-4 text-center">
+                            <a href="{{ url_for('auth.register') }}" class="btn btn-outline-primary w-100">
+                                <i class="bi bi-person-plus"></i> 회원가입
+                            </a>
+                        </div>
+                    </form>
+                    
+                    <div class="login-footer">
+                        <div class="alert alert-light border">
+                            <small class="text-muted">
+                                <i class="bi bi-shield-check"></i> 안전한 연구 데이터 관리<br>
+                                <i class="bi bi-file-lock"></i> 법적 효력 보장
+                            </small>
+                        </div>
+                        <small class="text-muted d-block mt-3">
+                            <i class="bi bi-code-square"></i> 빌드: wecar-rnd:v1.0.0
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    'use strict';
+    var forms = document.querySelectorAll('.needs-validation');
+    Array.prototype.slice.call(forms).forEach(function(form) {
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        }, false);
+    });
+})();
+</script>
+{% endblock %}
+

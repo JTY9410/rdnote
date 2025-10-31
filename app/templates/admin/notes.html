@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}연구과제 관리 - WECar 연구개발일지{% endblock %}
+
+{% block content %}
+{% include "admin/nav.html" %}
+<h2 class="mb-4">
+    <i class="bi bi-journal-text"></i> 연구과제 관리
+</h2>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>과제명</th>
+                <th>Owner</th>
+                <th>Workspace</th>
+                <th>멤버</th>
+                <th>파일수</th>
+                <th>최근업로드</th>
+                <th>다운로드 허용</th>
+                <th>액션</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in notes_data %}
+            {% set note = item.note %}
+            <tr>
+                <td>
+                    <strong>{{ note.title }}</strong>
+                    {% if note.status == 'approved' %}
+                        <span class="badge bg-success ms-2">승인됨</span>
+                    {% elif note.status == 'pending' %}
+                        <span class="badge bg-warning ms-2">검토중</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <i class="bi bi-person"></i> {{ note.owner_user.name }}
+                </td>
+                <td>
+                    <i class="bi bi-folder"></i> {{ note.workspace.name }}
+                </td>
+                <td>
+                    <span class="badge bg-info">{{ item.member_count }}</span>
+                </td>
+                <td>
+                    {% if item.file_count > 0 %}
+                        <span class="badge bg-success">{{ item.file_count }}</span>
+                    {% else %}
+                        <span class="badge bg-danger">0</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if item.latest_upload %}
+                        {{ item.latest_upload.strftime('%Y-%m-%d') }}
+                    {% else %}
+                        <span class="text-muted">없음</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="badge bg-{{ 'success' if note.allow_member_download else 'danger' }}">
+                        {{ '허용' if note.allow_member_download else '차단' }}
+                    </span>
+                </td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#noteModal{{ note.id }}">
+                        <i class="bi bi-info-circle"></i> 자세히
+                    </button>
+                </td>
+            </tr>
+            
+            <!-- Modal -->
+            <div class="modal fade" id="noteModal{{ note.id }}" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="bi bi-journal-text"></i> {{ note.title }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong>소유자:</strong> {{ note.owner_user.name }} ({{ note.owner_user.email }})<br>
+                                    <strong>워크스페이스:</strong> {{ note.workspace.name }}<br>
+                                    <strong>파일 수:</strong> {{ item.file_count }}개
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>멤버 수:</strong> {{ item.member_count }}명<br>
+                                    <strong>다운로드 허용:</strong> 
+                                    <span class="badge bg-{{ 'success' if note.allow_member_download else 'danger' }}">
+                                        {{ '예' if note.allow_member_download else '아니오' }}
+                                    </span><br>
+                                    <strong>생성일:</strong> {{ note.created_at.strftime('%Y-%m-%d') }}
+                                </div>
+                            </div>
+                            
+                            <hr>
+                            
+                            <h6><i class="bi bi-people"></i> 멤버 목록</h6>
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>이름</th>
+                                        <th>이메일</th>
+                                        <th>역할</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for member in note.members %}
+                                    <tr>
+                                        <td>{{ member.user.name }}</td>
+                                        <td>{{ member.user.email }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ 'primary' if member.role == 'OWNER' else 'success' if member.role == 'WRITER' else 'info' if member.role == 'REVIEWER' else 'secondary' }}">
+                                                {{ member.role }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
+

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}시스템 설정 - WECar 연구개발일지{% endblock %}
+
+{% block content %}
+{% include "admin/nav.html" %}
+<h2 class="mb-4">
+    <i class="bi bi-gear"></i> 시스템 설정
+</h2>
+
+<form method="POST" action="{{ url_for('admin.settings') }}">
+    
+    <!-- 보안 정책 -->
+    <div class="card mb-4 border-danger">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0"><i class="bi bi-shield-check"></i> 조직 보안 정책</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="allowed_extensions" class="form-label">
+                        <i class="bi bi-file-earmark-check"></i> 허용 확장자 (콤마로 구분)
+                    </label>
+                    <input type="text" class="form-control" id="allowed_extensions" name="allowed_extensions" value="{{ allowed_exts or '.pdf,.jpg,.png,.jpeg,.csv,.xlsx,.zip' }}">
+                    <small class="text-muted">예: .pdf,.jpg,.png,.jpeg,.csv,.xlsx,.zip</small>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label for="max_file_size_mb" class="form-label">
+                        <i class="bi bi-file-earmark-lock"></i> 최대 파일 크기 (MB)
+                    </label>
+                    <input type="number" class="form-control" id="max_file_size_mb" name="max_file_size_mb" value="{{ max_size or '500' }}" min="1">
+                    <small class="text-muted">개별 파일 최대 크기</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 다운로드 설정 -->
+    <div class="card mb-4 border-warning">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0"><i class="bi bi-download"></i> 다운로드 설정</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="daily_download_limit" class="form-label">
+                        <i class="bi bi-file-earmark-arrow-down"></i> 일일 다운로드 한도
+                    </label>
+                    <input type="number" class="form-control" id="daily_download_limit" name="daily_download_limit" value="{{ daily_limit or '100' }}" min="1">
+                    <small class="text-muted">사용자당 일일 최대 다운로드 횟수</small>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">
+                        <i class="bi bi-exclamation-triangle"></i> 대량 다운로드 경보 기준
+                    </label>
+                    <input type="text" class="form-control" value="10회/일" disabled>
+                    <small class="text-muted">이 횟수를 초과하면 경보 표시</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 세션 설정 -->
+    <div class="card mb-4 border-info">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-clock-history"></i> 세션 설정</h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="session_timeout_min" class="form-label">
+                    <i class="bi bi-hourglass-split"></i> 세션 타임아웃 (분)
+                </label>
+                <input type="number" class="form-control" id="session_timeout_min" name="session_timeout_min" value="{{ session_timeout or '60' }}" min="5" max="480">
+                <small class="text-muted">사용자가 활동하지 않을 시 자동 로그아웃 시간 (5분 ~ 8시간)</small>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 시스템 정보 -->
+    <div class="card mb-4 border-success">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="bi bi-info-circle"></i> 시스템 정보</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label"><i class="bi bi-tag"></i> 빌드 버전</label>
+                    <input type="text" class="form-control" value="{{ build_tag or 'v1.0.0' }}" disabled>
+                    <small class="text-muted">현재 배포 버전</small>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label class="form-label"><i class="bi bi-database"></i> DB 마이그레이션 상태</label>
+                    <div>
+                        {% if db_status %}
+                            {% if db_status.is_uptodate %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle"></i> 최신 상태
+                                </span>
+                            {% else %}
+                                <span class="badge bg-warning">
+                                    <i class="bi bi-exclamation-triangle"></i> 업데이트 필요
+                                </span>
+                            {% endif %}
+                            <br>
+                            <small class="text-muted">
+                                현재: {{ db_status.current_rev[:8] if db_status.current_rev and db_status.current_rev != 'unknown' else 'N/A' }} | 
+                                최신: {{ db_status.head_rev[:8] if db_status.head_rev and db_status.head_rev != 'unknown' else 'N/A' }}
+                            </small>
+                        {% else %}
+                            <span class="badge bg-secondary">
+                                <i class="bi bi-question-circle"></i> 확인 불가
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <hr>
+            
+            <!-- 저장소 통계 -->
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label"><i class="bi bi-files"></i> 총 파일 수</label>
+                    <input type="text" class="form-control" value="{{ total_files or 0 }}개" disabled>
+                </div>
+                
+                <div class="col-md-6">
+                    <label class="form-label"><i class="bi bi-hdd-stack"></i> 총 저장 공간</label>
+                    <input type="text" class="form-control" value="{{ total_size_mb or 0 }} MB" disabled>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-save"></i> 설정 저장
+        </button>
+        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary btn-lg">취소</a>
+    </div>
+</form>
+
+{% endblock %}

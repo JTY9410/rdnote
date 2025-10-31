@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}도움말 - WECar 연구개발일지{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">
+    <i class="bi bi-question-circle"></i> 사용자 가이드
+</h2>
+
+<!-- 왜 중요한가 -->
+<div class="card mb-4 border-primary">
+    <div class="card-header bg-primary text-white">
+        <h3 class="mb-0"><i class="bi bi-star-fill"></i> 왜 이 시스템을 써야 하나?</h3>
+    </div>
+    <div class="card-body">
+        <p class="lead">전자연구노트는 연구의 "사실기록"이며 정부평가, 특허, 분쟁 방어, 기술이전 협상의 핵심 증거입니다.</p>
+        <p>전자연구노트는 연구 아이디어부터 실험조건, 결과, 해석까지 시간순으로 남기는 공식 기록입니다.</p>
+        <p>사후 몰아쓰기나 누락은 신뢰도를 크게 떨어뜨리고 법적 문제가 될 수 있습니다.</p>
+        <div class="alert alert-info mt-3">
+            <i class="bi bi-info-circle"></i> <strong>법적 효력:</strong> 시점인증, 책임자 서명, 제3자 검토 서명이 포함된 기록은 법적 증거로 사용할 수 있습니다.
+        </div>
+    </div>
+</div>
+
+<!-- 무엇을 기록해야 하나 -->
+<div class="card mb-4 border-success">
+    <div class="card-header bg-success text-white">
+        <h3 class="mb-0"><i class="bi bi-journal-text"></i> 무엇을 기록해야 하나?</h3>
+    </div>
+    <div class="card-body">
+        <h5>필수 기록 항목:</h5>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item">
+                <i class="bi bi-calendar-check"></i> <strong>실제 실험일(created_date)</strong>
+                <small class="text-muted"> - 실제 수행한 날짜를 정확히 기록</small>
+            </li>
+            <li class="list-group-item">
+                <i class="bi bi-bullseye"></i> <strong>실험/테스트 목적</strong>
+                <small class="text-muted"> - 왜 이 실험을 했는지</small>
+            </li>
+            <li class="list-group-item">
+                <i class="bi bi-gear"></i> <strong>사용 장비·조건</strong>
+                <small class="text-muted"> - 온도, 전압, 소프트웨어 버전, 샘플 ID 등</small>
+            </li>
+            <li class="list-group-item">
+                <i class="bi bi-people"></i> <strong>수행 절차</strong>
+                <small class="text-muted"> - 누가 어떤 순서로 어떻게 했는지</small>
+            </li>
+            <li class="list-group-item">
+                <i class="bi bi-graph-up"></i> <strong>결과</strong>
+                <small class="text-muted"> - 성공/실패 모두 기록 (실패도 중요합니다)</small>
+            </li>
+            <li class="list-group-item">
+                <i class="bi bi-lightbulb"></i> <strong>문제점/해석/개선 아이디어</strong>
+                <small class="text-muted"> - 다음 실험을 위한 인사이트</small>
+            </li>
+            <li class="list-group-item">
+                <i class="bi bi-pencil-square"></i> <strong>책임자(OWNER) 및 제3자(REVIEWER) 승인 흔적</strong>
+                <small class="text-muted"> - 공식 승인 및 검토 서명</small>
+            </li>
+        </ul>
+        <div class="alert alert-warning mt-3">
+            <i class="bi bi-exclamation-triangle"></i> <strong>중요:</strong> 이것이 있어야 제3자가 재현 가능하고 법적 효력이 생깁니다.
+        </div>
+    </div>
+</div>
+
+<!-- 어떻게 기록하나 -->
+<div class="card mb-4 border-warning">
+    <div class="card-header bg-warning text-dark">
+        <h3 class="mb-0"><i class="bi bi-pencil"></i> 어떻게 기록하나?</h3>
+    </div>
+    <div class="card-body">
+        <h5>기록 프로세스:</h5>
+        <ol>
+            <li><strong>실험 직후 업로드:</strong> 폴더(목차)에서 Drag&Drop으로 파일 업로드</li>
+            <li><strong>실험일 입력:</strong> "작성일(실험일)"을 정확히 설정 (매우 중요!)</li>
+            <li><strong>조건 기록:</strong> 핵심 조건/요약(short_desc)과 태그(장비, 샘플ID 등) 입력</li>
+            <li><strong>수정이 필요할 때:</strong> "새 버전 업로드" 사용 (변경 사유 필수 입력)</li>
+            <li><strong>이력 보존:</strong> 기존 버전은 남겨 두어 변경 이력 유지</li>
+        </ol>
+        
+        <div class="alert alert-danger mt-3">
+            <h5><i class="bi bi-exclamation-triangle-fill"></i> 삭제는 최후의 수단</h5>
+            <ul class="mb-0">
+                <li>삭제는 <strong>복구 불가능</strong>합니다</li>
+                <li>삭제 사유는 감사 로그에 영구적으로 남습니다</li>
+                <li>연구노트는 <strong>장기보존 의무 대상</strong>입니다 (수년~수십 년)</li>
+                <li>삭제 시 법적 증빙력 상실 가능</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- 누가 볼 수 있나 -->
+<div class="card mb-4 border-info">
+    <div class="card-header bg-info text-white">
+        <h3 class="mb-0"><i class="bi bi-shield-lock"></i> 누가 볼 수 있나?</h3>
+    </div>
+    <div class="card-body">
+        <h5>권한 체계:</h5>
+        <ul>
+            <li><strong>OWNER:</strong> 모든 권한 (설정 변경, 멤버 관리, 소유권 이전, 삭제)</li>
+            <li><strong>WRITER:</strong> 업로드, 수정, 삭제(정책에 따라)</li>
+            <li><strong>READER:</strong> 열람, 다운로드(정책에 따라)</li>
+            <li><strong>REVIEWER:</strong> 열람, 검토 서명 (제3자 확인)</li>
+        </ul>
+        <div class="alert alert-info mt-3">
+            <i class="bi bi-info-circle"></i> OWNER가 허용하지 않으면 파일/PDF 직접 다운로드 불가합니다.<br>
+            모든 다운로드(반출)는 관리자에게 기록/감시됩니다.
+        </div>
+    </div>
+</div>
+
+<!-- 언제 제출하나 -->
+<div class="card mb-4 border-success">
+    <div class="card-header bg-success text-white">
+        <h3 class="mb-0"><i class="bi bi-file-earmark-pdf"></i> 언제 PDF로 뽑나?</h3>
+    </div>
+    <div class="card-body">
+        <p class="lead">외부 제출(정부평가/감사/기술이전/특허 검토 등)이 필요할 때</p>
+        
+        <h5>PDF 출력 시 포함되는 내용:</h5>
+        <ul>
+            <li>과제 정보 (과제명, 책임자, 기간)</li>
+            <li>참여자 권한표 (OWNER/WRITER/READER/REVIEWER)</li>
+            <li>실험 기록 인덱스 (작성일, 업로더, 조건/태그, <strong>시점인증</strong>)</li>
+            <li>최근 핵심 Audit 로그 (변경 이력, 삭제 사유 등)</li>
+            <li>책임자(OWNER) 서명 + 승인일시</li>
+            <li>검토자(REVIEWER) 서명 + 확인일시 (있을 경우)</li>
+            <li><strong>워터마크</strong> (기밀 / 유출 추적용 사용자 이메일 포함)</li>
+        </ul>
+        
+        <div class="alert alert-success mt-3">
+            <i class="bi bi-check-circle"></i> 이 PDF가 <strong>공식 증빙 문서</strong>입니다.
+        </div>
+    </div>
+</div>
+
+<!-- 보안 주의사항 -->
+<div class="card mb-4 border-danger">
+    <div class="card-header bg-danger text-white">
+        <h3 class="mb-0"><i class="bi bi-shield-exclamation"></i> 보안 주의사항</h3>
+    </div>
+    <div class="card-body">
+        <ul class="list-group">
+            <li class="list-group-item">
+                <i class="bi bi-download"></i> PDF나 원본 파일을 외부로 전달하면 즉시 <strong>"반출"로 기록</strong>됩니다
+            </li>
+            <li class="list-group-item">
+                <i class="bi bi-exclamation-circle"></i> 일일 다운로드 한도 초과 시도는 <strong>차단</strong>되고 관리자에게 <strong>경보</strong>됩니다
+            </li>
+            <li class="list-group-item">
+                <i class="bi bi-person-x"></i> <strong>계정 공유 금지:</strong> 모든 업로드/다운로드/승인은 개인 계정으로 AuditLog에 남습니다
+            </li>
+            <li class="list-group-item">
+                <i class="bi bi-file-lock"></i> 파일 접근은 <strong>항상 Flask 라우트를 거쳐</strong> 권한/다운로드 정책 검사를 받습니다
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- 키워드와 태그 -->
+<div class="card mb-4">
+    <div class="card-body">
+        <h4><i class="bi bi-tags"></i> 태그 활용 팁</h4>
+        <p>태그는 검색과 필터링을 위해 중요합니다:</p>
+        <ul>
+            <li>장비/기기: "SEM", "XRD", "분석기" 등</li>
+            <li>조건: "온도:25℃", "습도:60%", "전압:3.3V" 등</li>
+            <li>샘플 ID: "Sample-001", "Batch-A" 등</li>
+            <li>처리 단계: "전처리", "후처리", "세정" 등</li>
+        </ul>
+    </div>
+</div>
+
+<!-- 시점인증 설명 -->
+<div class="card mb-4">
+    <div class="card-body">
+        <h4><i class="bi bi-clock-history"></i> 시점인증이란?</h4>
+        <p><strong>timestamp_certified_at</strong>은 업로드 순간의 서버 시간을 자동으로 기록합니다.</p>
+        <p>이것은 "이 데이터/문서가 해당 시점에 존재했다"는 사실을 보증하는 중요한 증빙입니다.</p>
+        <p>특허 분쟁이나 법적 소송에서 시점인증은 결정적인 증거가 됩니다.</p>
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> PDF에 시점인증 시간이 포함되어 있어 외부 제출 시 신뢰성을 높입니다.
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+

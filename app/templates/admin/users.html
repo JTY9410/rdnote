@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}사용자 관리 - WECar 연구개발일지{% endblock %}
+
+{% block content %}
+{% include "admin/nav.html" %}
+
+<!-- 관리 상단 패널 -->
+<div class="alert alert-light border d-flex flex-wrap align-items-center gap-2 mb-3">
+    <strong class="me-2"><i class="bi bi-tools"></i> 관리 패널:</strong>
+    <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-outline-primary">사용자</a>
+    <a href="{{ url_for('admin.workspaces_list') }}" class="btn btn-sm btn-outline-primary">워크스페이스</a>
+    <a href="{{ url_for('admin.notes_list') }}" class="btn btn-sm btn-outline-primary">연구과제</a>
+    <a href="{{ url_for('admin.audit') }}" class="btn btn-sm btn-outline-primary">감사 로그</a>
+    <a href="{{ url_for('admin.downloads') }}" class="btn btn-sm btn-outline-primary">다운로드</a>
+    <a href="{{ url_for('admin.settings') }}" class="btn btn-sm btn-outline-primary">설정</a>
+    <a href="{{ url_for('notes.new') }}" class="btn btn-sm btn-success ms-auto"><i class="bi bi-journal-plus"></i> 연구노트 작성</a>
+    <a href="{{ url_for('help.guno_guide') }}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-book"></i> 작성 가이드</a>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3" id="add-user">
+    <h2 class="mb-0">사용자 관리</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+        <i class="bi bi-person-plus"></i> 사용자 추가
+    </button>
+    
+</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>이름</th>
+            <th>이메일</th>
+            <th>소속</th>
+            <th>상태</th>
+            <th>역할</th>
+            <th>서명</th>
+            <th>액션</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in users_with_roles %}
+        {% set user = item.user %}
+        <tr>
+            <td>{{ user.name }}</td>
+            <td>{{ user.email }}</td>
+            <td>{{ user.org_name or '-' }}</td>
+            <td>
+                <span class="badge bg-{{ 'success' if user.status == 'active' else 'warning' if user.status == 'pending' else 'danger' }}">
+                    {{ user.status }}
+                </span>
+            </td>
+            <td>
+                <span class="badge bg-{{ 'primary' if item.role_label=='관리자' else 'warning' if item.role_label=='연구책임자' else 'secondary' }}">{{ item.role_label }}</span>
+            </td>
+            <td>
+                {% if user.signature_path %}
+                    <span class="text-success"><i class="bi bi-check-circle"></i></span>
+                {% else %}
+                    <span class="text-danger"><i class="bi bi-x-circle"></i></span>
+                {% endif %}
+            </td>
+            <td>
+                <form method="POST" action="{{ url_for('admin.update_user_status', user_id=user.id) }}" class="d-inline">
+                    <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="pending" {{ 'selected' if user.status == 'pending' }}>대기</option>
+                        <option value="active" {{ 'selected' if user.status == 'active' }}>활성</option>
+                        <option value="suspended" {{ 'selected' if user.status == 'suspended' }}>정지</option>
+                    </select>
+                </form>
+                <button type="button" class="btn btn-sm btn-outline-secondary" 
+                        data-bs-toggle="modal" data-bs-target="#editUserModal"
+                        data-id="{{ user.id }}" data-name="{{ user.name }}" data-email="{{ user.email }}"
+                        data-org="{{ user.org_name or '' }}" data-dept="{{ user.department or '' }}" data-admin="{{ '1' if user.is_admin else '0' }}">
+                    수정
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-person-plus"></i> 사용자 추가</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.create_user') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">이름 *</label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">이메일 *</label>
+                        <input type="email" name="email" class="form-control" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">비밀번호 *</label>
+                            <input type="password" name="password" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">비밀번호 확인 *</label>
+                            <input type="password" name="password_confirm" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">소속</label>
+                            <input type="text" name="org_name" class="form-control">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">부서</label>
+                            <input type="text" name="department" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_admin" id="is_admin">
+                        <label class="form-check-label" for="is_admin">관리자 권한 부여</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">추가</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title"><i class="bi bi-pencil-square"></i> 사용자 수정</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.update_user_details') }}">
+                <input type="hidden" name="user_id" id="edit_user_id">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">이름 *</label>
+                        <input type="text" name="name" id="edit_name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">이메일 *</label>
+                        <input type="email" name="email" id="edit_email" class="form-control" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">소속</label>
+                            <input type="text" name="org_name" id="edit_org" class="form-control">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">부서</label>
+                            <input type="text" name="department" id="edit_dept" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_admin" id="edit_is_admin">
+                        <label class="form-check-label" for="edit_is_admin">관리자 권한</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+const editUserModal = document.getElementById('editUserModal');
+editUserModal?.addEventListener('show.bs.modal', function (event) {
+    const button = event.relatedTarget;
+    if (!button) return;
+    document.getElementById('edit_user_id').value = button.getAttribute('data-id');
+    document.getElementById('edit_name').value = button.getAttribute('data-name') || '';
+    document.getElementById('edit_email').value = button.getAttribute('data-email') || '';
+    document.getElementById('edit_org').value = button.getAttribute('data-org') || '';
+    document.getElementById('edit_dept').value = button.getAttribute('data-dept') || '';
+    const isAdmin = button.getAttribute('data-admin') === '1';
+    document.getElementById('edit_is_admin').checked = isAdmin;
+});
+</script>
+{% endblock %}
+
+{% endblock %}
+
