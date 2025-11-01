@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.utils import secure_filename
 from app import db
@@ -99,8 +99,10 @@ def register():
             try:
                 signature_bytes = base64.b64decode(signature_data.split(',')[1])
                 filename = f"{email}_{datetime.utcnow().timestamp()}.png"
-                os.makedirs('uploads/signatures', exist_ok=True)
-                signature_path = f"uploads/signatures/{filename}"
+                upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+                signatures_dir = os.path.join(upload_folder, 'signatures')
+                os.makedirs(signatures_dir, exist_ok=True)
+                signature_path = os.path.join(signatures_dir, filename)
                 
                 with open(signature_path, 'wb') as f:
                     f.write(signature_bytes)

@@ -318,10 +318,12 @@ def delete(note_id):
     
     # Delete all related files
     from app.models.file import File
+    from flask import current_app
     files = File.query.filter_by(note_id=note_id, is_deleted=False).all()
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
     for file in files:
         file.is_deleted = True
-        filepath = os.path.join('uploads/files', file.stored_filename)
+        filepath = os.path.join(upload_folder, 'files', file.stored_filename)
         if os.path.exists(filepath):
             os.remove(filepath)
     

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for, send_file
+from flask import Blueprint, render_template, request, flash, redirect, url_for, send_file, current_app
 from flask_login import login_required, current_user
 from app import db
 from app.models.research_note import ResearchNote, ResearchNoteMember
@@ -108,9 +108,10 @@ def pdf(note_id):
                           export_date=datetime.utcnow())
     
     # Generate PDF
-    os.makedirs('exports', exist_ok=True)
+    export_folder = current_app.config.get('EXPORT_FOLDER', 'exports')
+    os.makedirs(export_folder, exist_ok=True)
     pdf_filename = f"note_{note_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pdf"
-    pdf_path = os.path.join('exports', pdf_filename)
+    pdf_path = os.path.join(export_folder, pdf_filename)
     
     try:
         HTML(string=html).write_pdf(pdf_path)

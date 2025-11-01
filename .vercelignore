@@ -1,0 +1,39 @@
+# Vercel 배포 시 제외할 파일/디렉토리
+
+# 로컬 개발 파일
+.env
+.env.local
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# 로컬 업로드/내보내기 파일
+uploads/
+exports/
+
+# Docker 파일
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 문서
+*.md
+!README.md
+
+# 마이그레이션은 포함 (필요 시 수동 실행)
+# migrations/
+

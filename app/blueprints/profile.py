@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for
+from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app
 from flask_login import login_required, current_user
 from app import db
 from app.models.user import User
@@ -57,8 +57,10 @@ def signature():
         try:
             signature_bytes = base64.b64decode(signature_data.split(',')[1])
             filename = f"{current_user.email}_{datetime.utcnow().timestamp()}.png"
-            os.makedirs('uploads/signatures', exist_ok=True)
-            signature_path = f"uploads/signatures/{filename}"
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+            signatures_dir = os.path.join(upload_folder, 'signatures')
+            os.makedirs(signatures_dir, exist_ok=True)
+            signature_path = os.path.join(signatures_dir, filename)
             
             # Delete old signature if exists
             if current_user.signature_path and os.path.exists(current_user.signature_path):

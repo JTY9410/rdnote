@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, send_file, flash, url_for
+from flask import Blueprint, request, jsonify, send_file, flash, url_for, current_app
 from flask_login import login_required, current_user
 from app import db
 from app.models.file import File, FileTag
@@ -89,8 +89,10 @@ def upload(folder_id):
 
         # Save file
         stored_filename = f"{uuid.uuid4()}{ext}"
-        os.makedirs('uploads/files', exist_ok=True)
-        filepath = os.path.join('uploads/files', stored_filename)
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+        files_dir = os.path.join(upload_folder, 'files')
+        os.makedirs(files_dir, exist_ok=True)
+        filepath = os.path.join(files_dir, stored_filename)
         file.save(filepath)
         
         # Calculate SHA256 hash
@@ -207,8 +209,10 @@ def new_version(file_id):
     # Save new version
     ext = os.path.splitext(file.filename)[1].lower()
     stored_filename = f"{uuid.uuid4()}{ext}"
-    os.makedirs('uploads/files', exist_ok=True)
-    filepath = os.path.join('uploads/files', stored_filename)
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    files_dir = os.path.join(upload_folder, 'files')
+    os.makedirs(files_dir, exist_ok=True)
+    filepath = os.path.join(files_dir, stored_filename)
     file.save(filepath)
     
     # Calculate SHA256 hash
@@ -460,7 +464,8 @@ def download(file_id):
     log_audit(current_user.id, 'FILE_DOWNLOAD', note_id=file_record.note_id, file_id=file_id)
     
     # Send file
-    filepath = os.path.join('uploads/files', file_record.stored_filename)
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    filepath = os.path.join(upload_folder, 'files', file_record.stored_filename)
     if not os.path.exists(filepath):
         flash('File not found.', 'error')
         return redirect(url_for('notes.detail', note_id=note.id))
@@ -536,7 +541,8 @@ def delete(file_id):
         return jsonify({'error': '삭제 사유는 필수입니다. 연구개발일지는 수년~수십 년 단위로 유지해야 하는 법적 의무가 있습니다.'}), 400
     
     # Delete file from disk
-    filepath = os.path.join('uploads/files', file_record.stored_filename)
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    filepath = os.path.join(upload_folder, 'files', file_record.stored_filename)
     if os.path.exists(filepath):
         os.remove(filepath)
     

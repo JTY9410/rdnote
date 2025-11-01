@@ -16,8 +16,25 @@ def create_app():
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://wecar_user:wecar_pass@localhost:5432/wecar_db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
-    app.config['EXPORT_FOLDER'] = os.environ.get('EXPORT_FOLDER', 'exports')
+    
+    # Vercel serverless compatibility: use /tmp for ephemeral storage
+    # Note: Files in /tmp are deleted after function execution
+    # For production, use external storage (S3, Cloudflare R2, etc.)
+    if os.environ.get('VERCEL'):
+        app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', '/tmp/uploads')
+        app.config['EXPORT_FOLDER'] = os.environ.get('EXPORT_FOLDER', '/tmp/exports')
+    else:
+        app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
+        app.config['EXPORT_FOLDER'] = os.environ.get('EXPORT_FOLDER', 'exports')
+    
+    # SQLAlchemy connection pool settings for serverless
+    if os.environ.get('VERCEL'):
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_pre_ping': True,
+            'pool_recycle': 300,
+            'pool_size': 1,
+            'max_overflow': 0
+        }
     
     # Initialize extensions
     db.init_app(app)
