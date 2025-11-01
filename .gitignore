@@ -27,3 +27,4 @@ uploads/
 exports/
 instance/
 *.sqlite
+.vercel
