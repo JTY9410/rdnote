@@ -28,6 +28,12 @@ def create_app():
     # Flask's debug error handler will be overridden by our handlers
     app.config['PROPAGATE_EXCEPTIONS'] = False
     
+    # Session configuration for better compatibility
+    app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours in seconds
+    app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    
     # Vercel serverless compatibility: use /tmp for ephemeral storage
     # Note: Files in /tmp are deleted after function execution
     # For production, use external storage (S3, Cloudflare R2, etc.)
@@ -53,7 +59,8 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Please login to access this page.'
-    login_manager.session_protection = 'strong'  # Protect against session fixation
+    # Use 'basic' protection to avoid issues with serverless environments
+    login_manager.session_protection = 'basic'  # Changed from 'strong' for better compatibility
     
     @login_manager.user_loader
     def load_user(user_id):

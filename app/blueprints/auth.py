@@ -88,8 +88,20 @@ def login():
                             
                             # Perform login
                             try:
+                                # Ensure session is properly configured before login
+                                session.permanent = True
+                                
+                                # Perform login
                                 login_user(user, remember=False)
-                                current_app.logger.info(f"User {email} logged in successfully")
+                                
+                                # Force session to save immediately
+                                session.modified = True
+                                
+                                # Verify login was successful
+                                if not current_user.is_authenticated:
+                                    raise Exception("login_user() succeeded but user is not authenticated")
+                                
+                                current_app.logger.info(f"User {email} logged in successfully (ID: {current_user.id})")
                             except Exception as e:
                                 current_app.logger.error(f"Failed to login user {email}: {e}")
                                 import traceback
@@ -110,16 +122,25 @@ def login():
                             
                             # Redirect to dashboard
                             try:
-                                # Verify user is logged in before redirect
-                                if not hasattr(current_user, 'is_authenticated') or not current_user.is_authenticated:
-                                    current_app.logger.error(f"User {email} not properly authenticated after login_user()")
+                                # Final verification - user should be authenticated
+                                if not current_user.is_authenticated:
+                                    current_app.logger.error(f"User {email} not authenticated after login_user()")
                                     raise Exception("Authentication state inconsistent")
                                 
-                                current_app.logger.info(f"Redirecting {email} to dashboard")
+                                current_app.logger.info(f"Redirecting {email} (ID: {current_user.id}) to dashboard")
                                 flash('로그인되었습니다.', 'success')
+                                
+                                # Get dashboard URL
                                 dashboard_url = url_for('dashboard.index')
                                 current_app.logger.info(f"Dashboard URL: {dashboard_url}")
-                                return redirect(dashboard_url)
+                                
+                                # Create redirect response with explicit session save
+                                from flask import redirect
+                                response = redirect(dashboard_url)
+                                
+                                # Ensure session is saved with the response
+                                session.modified = True
+                                return response
                             except Exception as e:
                                 current_app.logger.error(f"Failed to redirect after login for {email}: {e}")
                                 import traceback
