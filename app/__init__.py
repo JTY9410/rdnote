@@ -24,6 +24,10 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://wecar_user:wecar_pass@localhost:5432/wecar_db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
+    # Ensure error handlers work even in debug mode
+    # Flask's debug error handler will be overridden by our handlers
+    app.config['PROPAGATE_EXCEPTIONS'] = False
+    
     # Vercel serverless compatibility: use /tmp for ephemeral storage
     # Note: Files in /tmp are deleted after function execution
     # For production, use external storage (S3, Cloudflare R2, etc.)
@@ -71,37 +75,133 @@ def create_app():
             logger.error(traceback.format_exc())
             return None
     
-    # Register blueprints
-    from app.blueprints.auth import auth_bp
-    from app.blueprints.dashboard import dashboard_bp
-    from app.blueprints.profile import profile_bp
-    from app.blueprints.workspaces import workspaces_bp
-    from app.blueprints.notes import notes_bp
-    from app.blueprints.folders import folders_bp
-    from app.blueprints.files import files_bp
-    from app.blueprints.export import export_bp
-    from app.blueprints.admin import admin_bp
-    from app.blueprints.help import help_bp
-    from app.blueprints.comments import comments_bp
-    from app.blueprints.webhooks import webhooks_bp
+    # Register blueprints with error handling
+    try:
+        from app.blueprints.auth import auth_bp
+        app.register_blueprint(auth_bp, url_prefix='/auth')
+    except Exception as e:
+        logger.error(f"Failed to register auth blueprint: {e}")
+        logger.error(traceback.format_exc())
     
-    app.register_blueprint(auth_bp, url_prefix='/auth')
-    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
-    app.register_blueprint(profile_bp, url_prefix='/profile')
-    app.register_blueprint(workspaces_bp, url_prefix='/workspaces')
-    app.register_blueprint(notes_bp, url_prefix='/notes')
-    app.register_blueprint(folders_bp, url_prefix='')
-    app.register_blueprint(files_bp, url_prefix='')
-    app.register_blueprint(export_bp, url_prefix='')
-    app.register_blueprint(admin_bp, url_prefix='/admin')
-    app.register_blueprint(help_bp, url_prefix='/help')
-    app.register_blueprint(comments_bp, url_prefix='')
-    app.register_blueprint(webhooks_bp, url_prefix='')
+    try:
+        from app.blueprints.dashboard import dashboard_bp
+        app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+    except Exception as e:
+        logger.error(f"Failed to register dashboard blueprint: {e}")
+        logger.error(traceback.format_exc())
+    
+    try:
+        from app.blueprints.profile import profile_bp
+        app.register_blueprint(profile_bp, url_prefix='/profile')
+    except Exception as e:
+        logger.error(f"Failed to register profile blueprint: {e}")
+        logger.error(traceback.format_exc())
+    
+    try:
+        from app.blueprints.workspaces import workspaces_bp
+        app.register_blueprint(workspaces_bp, url_prefix='/workspaces')
+    except Exception as e:
+        logger.error(f"Failed to register workspaces blueprint: {e}")
+        logger.error(traceback.format_exc())
+    
+    try:
+        from app.blueprints.notes import notes_bp
+        app.register_blueprint(notes_bp, url_prefix='/notes')
+    except Exception as e:
+        logger.error(f"Failed to register notes blueprint: {e}")
+        logger.error(traceback.format_exc())
+    
+    try:
+        from app.blueprints.folders import folders_bp
+        app.register_blueprint(folders_bp, url_prefix='')
+    except Exception as e:
+        logger.error(f"Failed to register folders blueprint: {e}")
+        logger.error(traceback.format_exc())
+    
+    try:
+        from app.blueprints.files import files_bp
+        app.register_blueprint(files_bp, url_prefix='')
+    except Exception as e:
+        logger.error(f"Failed to register files blueprint: {e}")
+        logger.error(traceback.format_exc())
+    
+    try:
+        from app.blueprints.export import export_bp
+        app.register_blueprint(export_bp, url_prefix='')
+    except Exception as e:
+        logger.error(f"Failed to register export blueprint: {e}")
+        logger.error(traceback.format_exc())
+    
+    try:
+        from app.blueprints.admin import admin_bp
+        app.register_blueprint(admin_bp, url_prefix='/admin')
+    except Exception as e:
+        logger.error(f"Failed to register admin blueprint: {e}")
+        logger.error(traceback.format_exc())
+    
+    try:
+        from app.blueprints.help import help_bp
+        app.register_blueprint(help_bp, url_prefix='/help')
+    except Exception as e:
+        logger.error(f"Failed to register help blueprint: {e}")
+        logger.error(traceback.format_exc())
+    
+    try:
+        from app.blueprints.comments import comments_bp
+        app.register_blueprint(comments_bp, url_prefix='')
+    except Exception as e:
+        logger.error(f"Failed to register comments blueprint: {e}")
+        logger.error(traceback.format_exc())
+    
+    try:
+        from app.blueprints.webhooks import webhooks_bp
+        app.register_blueprint(webhooks_bp, url_prefix='')
+    except Exception as e:
+        logger.error(f"Failed to register webhooks blueprint: {e}")
+        logger.error(traceback.format_exc())
+    
+    # Request error handlers - catch errors during request processing
+    @app.before_request
+    def before_request():
+        try:
+            # Ensure database session is available
+            pass
+        except Exception as e:
+            logger.error(f"Error in before_request: {e}")
+            logger.error(traceback.format_exc())
+    
+    @app.teardown_request
+    def teardown_request(exception):
+        """Handle cleanup after each request"""
+        if exception:
+            logger.error(f"Exception in request: {exception}")
+            logger.error(traceback.format_exc())
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+        # Don't auto-commit here - let views handle their own commits
+        # Flask-SQLAlchemy handles session management
+    
+    # Test route for debugging (can be removed in production)
+    @app.route('/health')
+    def health_check():
+        """Simple health check endpoint"""
+        try:
+            return jsonify({'status': 'ok', 'message': 'Application is running'}), 200
+        except Exception as e:
+            logger.error(f"Error in health check: {e}")
+            return jsonify({'status': 'error', 'message': str(e)}), 500
     
     # Root route
     @app.route('/')
     def index():
-        return redirect(url_for('auth.login'))
+        try:
+            return redirect(url_for('auth.login'))
+        except Exception as e:
+            logger.error(f"Error in root route: {e}")
+            logger.error(traceback.format_exc())
+            return '<h1>Application Error</h1><p>Please contact administrator.</p>', 500
     
     # Make utility functions available to templates
     @app.context_processor
@@ -118,7 +218,7 @@ def create_app():
             logger.error(f"Error in inject_permissions: {e}")
             return {}
     
-    # Global error handlers
+    # Global error handlers - register these AFTER everything else to catch all errors
     @app.errorhandler(404)
     def not_found_error(error):
         logger.warning(f"404 error: {error}")
@@ -142,7 +242,7 @@ def create_app():
     
     @app.errorhandler(Exception)
     def handle_exception(e):
-        """Handle all unhandled exceptions"""
+        """Handle all unhandled exceptions - This must be last"""
         logger.error(f"Unhandled exception: {e}")
         logger.error(traceback.format_exc())
         
@@ -155,12 +255,18 @@ def create_app():
         # Return appropriate response based on request type
         from flask import request
         try:
-            if request.is_json:
+            # Check if this is a 404 or other HTTPException
+            from werkzeug.exceptions import HTTPException
+            if isinstance(e, HTTPException):
+                return e
+            
+            if hasattr(request, 'is_json') and request.is_json:
                 return jsonify({'error': 'An internal error occurred', 'message': str(e)}), 500
             else:
                 return render_template('errors/500.html'), 500
-        except Exception:
+        except Exception as render_error:
             # Fallback if template rendering fails
+            logger.error(f"Error rendering error template: {render_error}")
             return '<h1>500 - Internal Server Error</h1><p>An internal error occurred. Please try again later.</p>', 500
     
     # Initialize system settings on first run (after tables exist)
