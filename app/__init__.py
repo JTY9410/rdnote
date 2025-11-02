@@ -240,7 +240,18 @@ def create_app():
     # Global error handlers - register these AFTER everything else to catch all errors
     @app.errorhandler(404)
     def not_found_error(error):
-        logger.warning(f"404 error: {error}")
+        from flask import request
+        # Ignore common 404 requests that don't need logging
+        ignored_paths = ['/favicon.ico', '/robots.txt', '/apple-touch-icon.png', 
+                        '/apple-touch-icon-precomposed.png', '/favicon.png']
+        
+        if request.path in ignored_paths:
+            # These are common browser/SEO requests, just return 404 without logging
+            return '', 404
+        
+        # Only log non-ignored 404 errors as debug level (reduces noise)
+        logger.debug(f"404 error for path: {request.path} - {error}")
+        
         try:
             return render_template('errors/404.html'), 404
         except Exception:
