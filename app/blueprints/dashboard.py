@@ -16,11 +16,25 @@ dashboard_bp = Blueprint('dashboard', __name__)
 @dashboard_bp.before_request
 @login_required
 def require_login():
-    pass
+    """Ensure user is logged in before accessing dashboard"""
+    from flask_login import current_user
+    from flask import current_app
+    try:
+        if not current_user.is_authenticated:
+            from flask import redirect, url_for
+            current_app.logger.warning(f"Unauthenticated access attempt to dashboard")
+            return redirect(url_for('auth.login'))
+    except Exception as e:
+        current_app.logger.error(f"Error in dashboard require_login: {e}")
+        from flask import redirect, url_for
+        return redirect(url_for('auth.login'))
 
 @dashboard_bp.route('/')
 def index():
+    from flask_login import current_user
+    from flask import current_app
     try:
+        current_app.logger.info(f"Dashboard access by user: {current_user.email if current_user.is_authenticated else 'anonymous'}")
         # Get user's workspaces
         from app.models.workspace import WorkspaceMember as WSMember
         workspaces = db.session.query(Workspace).join(

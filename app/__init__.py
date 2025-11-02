@@ -53,27 +53,46 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Please login to access this page.'
+    login_manager.session_protection = 'strong'  # Protect against session fixation
     
     @login_manager.user_loader
     def load_user(user_id):
         """Load user by ID, with error handling"""
         try:
             if not user_id:
+                logger.debug("load_user called with None user_id")
                 return None
             from app.models.user import User
             user_id_int = int(user_id)
-            return User.query.get(user_id_int)
+            user = User.query.get(user_id_int)
+            if user:
+                logger.debug(f"Loaded user: {user.email} (ID: {user_id_int})")
+            else:
+                logger.warning(f"User not found with ID: {user_id_int}")
+            return user
         except (ValueError, TypeError) as e:
             logger.error(f"Invalid user_id in load_user: {user_id}, error: {e}")
             return None
         except SQLAlchemyError as e:
             logger.error(f"Database error in load_user: {e}")
-            db.session.rollback()
+            logger.error(traceback.format_exc())
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
             return None
         except Exception as e:
             logger.error(f"Unexpected error in load_user: {e}")
             logger.error(traceback.format_exc())
             return None
+    
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        """Handle unauthorized access"""
+        logger.warning("Unauthorized access attempt")
+        from flask import redirect, url_for, flash
+        flash('로그인이 필요합니다.', 'error')
+        return redirect(url_for('auth.login'))
     
     # Register blueprints with error handling
     try:

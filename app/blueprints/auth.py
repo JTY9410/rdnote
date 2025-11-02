@@ -50,9 +50,13 @@ def login():
             return render_template('auth/login.html', need_captcha=session.get('need_captcha', False))
         
         try:
+            # Query user with detailed logging
+            current_app.logger.info(f"Attempting login for email: {email}")
             user = User.query.filter_by(email=email).first()
             
             if user:
+                current_app.logger.info(f"User found: {email}, status: {user.status}, has_hash: {bool(user.password_hash)}")
+                
                 # Check password
                 try:
                     if not user.password_hash:
@@ -62,8 +66,11 @@ def login():
                         return render_template('auth/login.html', need_captcha=session.get('need_captcha', False))
                     
                     password_valid = check_password(user.password_hash, password)
+                    current_app.logger.info(f"Password check for {email}: {password_valid}")
                 except Exception as e:
                     current_app.logger.error(f"Error checking password for {email}: {e}")
+                    import traceback
+                    current_app.logger.error(traceback.format_exc())
                     flash('로그인 중 오류가 발생했습니다. 다시 시도해주세요.', 'error')
                     return render_template('auth/login.html', need_captcha=session.get('need_captcha', False))
                 
@@ -103,15 +110,28 @@ def login():
                             
                             # Redirect to dashboard
                             try:
+                                # Verify user is logged in before redirect
+                                if not hasattr(current_user, 'is_authenticated') or not current_user.is_authenticated:
+                                    current_app.logger.error(f"User {email} not properly authenticated after login_user()")
+                                    raise Exception("Authentication state inconsistent")
+                                
+                                current_app.logger.info(f"Redirecting {email} to dashboard")
                                 flash('로그인되었습니다.', 'success')
-                                return redirect(url_for('dashboard.index'))
+                                dashboard_url = url_for('dashboard.index')
+                                current_app.logger.info(f"Dashboard URL: {dashboard_url}")
+                                return redirect(dashboard_url)
                             except Exception as e:
-                                current_app.logger.error(f"Failed to redirect after login: {e}")
+                                current_app.logger.error(f"Failed to redirect after login for {email}: {e}")
                                 import traceback
                                 current_app.logger.error(traceback.format_exc())
                                 # If redirect fails, show dashboard directly
-                                from flask import redirect
-                                return redirect('/dashboard')
+                                try:
+                                    from flask import redirect
+                                    return redirect('/dashboard')
+                                except Exception as redirect_error:
+                                    current_app.logger.error(f"Even simple redirect failed: {redirect_error}")
+                                    flash('로그인되었지만 페이지 이동에 실패했습니다. /dashboard로 직접 이동해주세요.', 'warning')
+                                    return render_template('auth/login.html', need_captcha=False)
                         except Exception as e:
                             current_app.logger.error(f"Unexpected error during login: {e}")
                             import traceback
@@ -144,13 +164,15 @@ def login():
                 time.sleep(min(2 + fail_count, 8))
                 flash('이메일 또는 비밀번호가 올바르지 않습니다.', 'error')
         except Exception as e:
-            current_app.logger.error(f"Database error during login: {e}")
+            current_app.logger.error(f"Database error during login for {email}: {e}")
             import traceback
-            current_app.logger.error(traceback.format_exc())
+            error_trace = traceback.format_exc()
+            current_app.logger.error(f"Full traceback:\n{error_trace}")
             try:
                 db.session.rollback()
-            except Exception:
-                pass
+                current_app.logger.info("Database session rolled back successfully")
+            except Exception as rollback_error:
+                current_app.logger.error(f"Error during rollback: {rollback_error}")
             flash('로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'error')
     
     return render_template('auth/login.html', need_captcha=session.get('need_captcha', False))
