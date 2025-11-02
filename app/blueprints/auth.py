@@ -70,21 +70,57 @@ def login():
                 if password_valid:
                     if user.status == 'active':
                         try:
-                            user.last_login_at = datetime.utcnow()
-                            db.session.commit()
+                            # Update last login time
+                            try:
+                                user.last_login_at = datetime.utcnow()
+                                db.session.commit()
+                            except Exception as e:
+                                current_app.logger.warning(f"Failed to update last_login_at for {email}: {e}")
+                                db.session.rollback()
+                                # Continue with login even if this fails
                             
-                            login_user(user, remember=False)
-                            log_audit(user.id, 'USER_LOGIN', meta_json={'email': email})
+                            # Perform login
+                            try:
+                                login_user(user, remember=False)
+                                current_app.logger.info(f"User {email} logged in successfully")
+                            except Exception as e:
+                                current_app.logger.error(f"Failed to login user {email}: {e}")
+                                import traceback
+                                current_app.logger.error(traceback.format_exc())
+                                flash('로그인 세션 생성에 실패했습니다. 다시 시도해주세요.', 'error')
+                                return render_template('auth/login.html', need_captcha=session.get('need_captcha', False))
+                            
+                            # Log audit (non-blocking)
+                            try:
+                                log_audit(user.id, 'USER_LOGIN', meta_json={'email': email})
+                            except Exception as e:
+                                current_app.logger.warning(f"Failed to log audit for login: {e}")
+                                # Don't fail login if audit logging fails
+                            
+                            # Clear failure counters
                             session.pop('login_failures', None)
                             session.pop('need_captcha', None)
-                            flash('로그인되었습니다.', 'success')
-                            return redirect(url_for('dashboard.index'))
+                            
+                            # Redirect to dashboard
+                            try:
+                                flash('로그인되었습니다.', 'success')
+                                return redirect(url_for('dashboard.index'))
+                            except Exception as e:
+                                current_app.logger.error(f"Failed to redirect after login: {e}")
+                                import traceback
+                                current_app.logger.error(traceback.format_exc())
+                                # If redirect fails, show dashboard directly
+                                from flask import redirect
+                                return redirect('/dashboard')
                         except Exception as e:
-                            current_app.logger.error(f"Error during login: {e}")
+                            current_app.logger.error(f"Unexpected error during login: {e}")
                             import traceback
                             current_app.logger.error(traceback.format_exc())
-                            db.session.rollback()
-                            flash('로그인 중 오류가 발생했습니다. 다시 시도해주세요.', 'error')
+                            try:
+                                db.session.rollback()
+                            except Exception:
+                                pass
+                            flash('로그인 처리 중 예상치 못한 오류가 발생했습니다. 관리자에게 문의하세요.', 'error')
                     else:
                         try:
                             log_audit(user.id, 'USER_LOGIN_DENIED', meta_json={'reason': f'status={user.status}'})

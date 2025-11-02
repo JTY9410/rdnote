@@ -114,8 +114,11 @@ def index():
             pass
         
         # Check download limit
-        if today_downloads >= daily_limit * 0.8:
-            warnings.append("Approaching daily download limit")
+        try:
+            if today_downloads >= daily_limit * 0.8:
+                warnings.append("Approaching daily download limit")
+        except Exception:
+            pass
         
         return render_template('dashboard/index.html',
                              workspaces=workspaces,
