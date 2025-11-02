@@ -26,7 +26,15 @@ def index():
     from flask_login import current_user
     from flask import current_app
     try:
-        current_app.logger.info(f"Dashboard access by user: {current_user.email if current_user.is_authenticated else 'anonymous'}")
+        # Safe check for authenticated user
+        user_info = 'anonymous'
+        try:
+            if hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
+                user_info = getattr(current_user, 'email', f'user_id_{getattr(current_user, "id", "unknown")}')
+        except Exception:
+            pass
+        
+        current_app.logger.info(f"Dashboard access by user: {user_info}")
         # Get user's workspaces
         from app.models.workspace import WorkspaceMember as WSMember
         workspaces = db.session.query(Workspace).join(

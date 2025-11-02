@@ -76,92 +76,104 @@ def login():
                 
                 if password_valid:
                     if user.status == 'active':
+                        # Update last login time (non-blocking)
                         try:
-                            # Update last login time
-                            try:
-                                user.last_login_at = datetime.utcnow()
-                                db.session.commit()
-                            except Exception as e:
-                                current_app.logger.warning(f"Failed to update last_login_at for {email}: {e}")
-                                db.session.rollback()
-                                # Continue with login even if this fails
-                            
-                            # Perform login
-                            try:
-                                # Ensure session is properly configured before login
-                                session.permanent = True
-                                
-                                # Perform login
-                                login_user(user, remember=False)
-                                
-                                # Force session to save immediately
-                                session.modified = True
-                                
-                                # Verify login was successful
-                                if not current_user.is_authenticated:
-                                    raise Exception("login_user() succeeded but user is not authenticated")
-                                
-                                current_app.logger.info(f"User {email} logged in successfully (ID: {current_user.id})")
-                            except Exception as e:
-                                current_app.logger.error(f"Failed to login user {email}: {e}")
-                                import traceback
-                                current_app.logger.error(traceback.format_exc())
-                                flash('로그인 세션 생성에 실패했습니다. 다시 시도해주세요.', 'error')
-                                return render_template('auth/login.html', need_captcha=session.get('need_captcha', False))
-                            
-                            # Log audit (non-blocking)
-                            try:
-                                log_audit(user.id, 'USER_LOGIN', meta_json={'email': email})
-                            except Exception as e:
-                                current_app.logger.warning(f"Failed to log audit for login: {e}")
-                                # Don't fail login if audit logging fails
-                            
-                            # Clear failure counters
-                            session.pop('login_failures', None)
-                            session.pop('need_captcha', None)
-                            
-                            # Redirect to dashboard
-                            try:
-                                # Final verification - user should be authenticated
-                                if not current_user.is_authenticated:
-                                    current_app.logger.error(f"User {email} not authenticated after login_user()")
-                                    raise Exception("Authentication state inconsistent")
-                                
-                                current_app.logger.info(f"Redirecting {email} (ID: {current_user.id}) to dashboard")
-                                flash('로그인되었습니다.', 'success')
-                                
-                                # Get dashboard URL
-                                dashboard_url = url_for('dashboard.index')
-                                current_app.logger.info(f"Dashboard URL: {dashboard_url}")
-                                
-                                # Create redirect response with explicit session save
-                                from flask import redirect
-                                response = redirect(dashboard_url)
-                                
-                                # Ensure session is saved with the response
-                                session.modified = True
-                                return response
-                            except Exception as e:
-                                current_app.logger.error(f"Failed to redirect after login for {email}: {e}")
-                                import traceback
-                                current_app.logger.error(traceback.format_exc())
-                                # If redirect fails, show dashboard directly
-                                try:
-                                    from flask import redirect
-                                    return redirect('/dashboard')
-                                except Exception as redirect_error:
-                                    current_app.logger.error(f"Even simple redirect failed: {redirect_error}")
-                                    flash('로그인되었지만 페이지 이동에 실패했습니다. /dashboard로 직접 이동해주세요.', 'warning')
-                                    return render_template('auth/login.html', need_captcha=False)
+                            user.last_login_at = datetime.utcnow()
+                            db.session.commit()
                         except Exception as e:
-                            current_app.logger.error(f"Unexpected error during login: {e}")
-                            import traceback
-                            current_app.logger.error(traceback.format_exc())
+                            current_app.logger.warning(f"Failed to update last_login_at for {email}: {e}")
                             try:
                                 db.session.rollback()
                             except Exception:
                                 pass
-                            flash('로그인 처리 중 예상치 못한 오류가 발생했습니다. 관리자에게 문의하세요.', 'error')
+                            # Continue with login even if this fails
+                        
+                        # Perform login with comprehensive error handling
+                        try:
+                            # Configure session
+                            session.permanent = True
+                            
+                            # Perform login - this is the critical step
+                            login_user(user, remember=False)
+                            
+                            # Verify login immediately
+                            if not current_user.is_authenticated:
+                                current_app.logger.error(f"CRITICAL: login_user() called but user {email} not authenticated")
+                                raise Exception("Authentication failed after login_user()")
+                            
+                            # Mark session as modified to ensure it's saved
+                            session.modified = True
+                            
+                            current_app.logger.info(f"User {email} logged in successfully (ID: {current_user.id})")
+                            
+                        except Exception as login_error:
+                            current_app.logger.error(f"CRITICAL ERROR during login_user() for {email}: {login_error}")
+                            import traceback
+                            error_trace = traceback.format_exc()
+                            current_app.logger.error(f"Full traceback:\n{error_trace}")
+                            
+                            # Try to rollback any database changes
+                            try:
+                                db.session.rollback()
+                            except Exception:
+                                pass
+                            
+                            flash('로그인 세션을 생성하는데 실패했습니다. 다시 시도해주세요.', 'error')
+                            return render_template('auth/login.html', need_captcha=session.get('need_captcha', False))
+                        
+                        # Log audit (non-blocking - don't fail login if this fails)
+                        try:
+                            log_audit(user.id, 'USER_LOGIN', meta_json={'email': email})
+                        except Exception as audit_error:
+                            current_app.logger.warning(f"Failed to log audit for login: {audit_error}")
+                            # Don't fail login if audit logging fails
+                        
+                        # Clear failure counters
+                        try:
+                            session.pop('login_failures', None)
+                            session.pop('need_captcha', None)
+                        except Exception:
+                            pass
+                        
+                        # Redirect to dashboard
+                        try:
+                            # Final verification before redirect
+                            if not current_user.is_authenticated:
+                                current_app.logger.error(f"CRITICAL: User {email} not authenticated before redirect")
+                                raise Exception("Authentication state lost before redirect")
+                            
+                            current_app.logger.info(f"Redirecting {email} (ID: {current_user.id}) to dashboard")
+                            
+                            # Prepare redirect
+                            flash('로그인되었습니다.', 'success')
+                            dashboard_url = url_for('dashboard.index')
+                            
+                            current_app.logger.info(f"Dashboard URL: {dashboard_url}")
+                            
+                            # Create redirect response
+                            response = redirect(dashboard_url)
+                            
+                            # Ensure session is saved
+                            session.modified = True
+                            
+                            current_app.logger.info(f"Login complete for {email}, redirecting to {dashboard_url}")
+                            return response
+                            
+                        except Exception as redirect_error:
+                            current_app.logger.error(f"CRITICAL ERROR during redirect for {email}: {redirect_error}")
+                            import traceback
+                            current_app.logger.error(traceback.format_exc())
+                            
+                            # Try fallback redirect
+                            try:
+                                current_app.logger.info(f"Attempting fallback redirect to /dashboard")
+                                flash('로그인되었습니다. 대시보드로 이동합니다.', 'success')
+                                session.modified = True
+                                return redirect('/dashboard')
+                            except Exception as fallback_error:
+                                current_app.logger.error(f"Fallback redirect also failed: {fallback_error}")
+                                flash('로그인되었지만 페이지 이동에 실패했습니다. /dashboard로 직접 이동해주세요.', 'warning')
+                                return render_template('auth/login.html', need_captcha=False)
                     else:
                         try:
                             log_audit(user.id, 'USER_LOGIN_DENIED', meta_json={'reason': f'status={user.status}'})
@@ -185,16 +197,29 @@ def login():
                 time.sleep(min(2 + fail_count, 8))
                 flash('이메일 또는 비밀번호가 올바르지 않습니다.', 'error')
         except Exception as e:
-            current_app.logger.error(f"Database error during login for {email}: {e}")
+            current_app.logger.error(f"CRITICAL: Database or general error during login for {email}: {e}")
             import traceback
             error_trace = traceback.format_exc()
             current_app.logger.error(f"Full traceback:\n{error_trace}")
+            
+            # Try to rollback database session
             try:
                 db.session.rollback()
                 current_app.logger.info("Database session rolled back successfully")
             except Exception as rollback_error:
                 current_app.logger.error(f"Error during rollback: {rollback_error}")
-            flash('로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'error')
+            
+            # Provide more specific error message based on error type
+            error_msg = '로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+            
+            # Check if it's a database connection error
+            from sqlalchemy.exc import OperationalError, DisconnectionError
+            if isinstance(e, (OperationalError, DisconnectionError)):
+                error_msg = '데이터베이스 연결 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+            elif isinstance(e, Exception):
+                error_msg = f'로그인 처리 중 오류가 발생했습니다: {str(e)[:100]}'
+            
+            flash(error_msg, 'error')
     
     return render_template('auth/login.html', need_captcha=session.get('need_captcha', False))
 
