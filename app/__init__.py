@@ -6,7 +6,8 @@ import os
 import traceback
 import logging
 from datetime import datetime
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, OperationalError, DisconnectionError
+from sqlalchemy import text
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -44,13 +45,29 @@ def create_app():
         app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
         app.config['EXPORT_FOLDER'] = os.environ.get('EXPORT_FOLDER', 'exports')
     
-    # SQLAlchemy connection pool settings for serverless
+    # SQLAlchemy connection pool settings
+    # pool_pre_ping: 연결 전 상태 확인하여 끊어진 연결 자동 재연결
+    # pool_recycle: 연결을 주기적으로 재사용하여 타임아웃 방지
     if os.environ.get('VERCEL'):
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_pre_ping': True,  # 연결 전 ping으로 상태 확인
+            'pool_recycle': 300,   # 5분마다 연결 재사용
+            'pool_size': 1,
+            'max_overflow': 0,
+            'connect_args': {
+                'connect_timeout': 10,  # 연결 타임아웃 10초
+            }
+        }
+    else:
+        # 로컬 환경도 동일한 설정 적용
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,
             'pool_recycle': 300,
-            'pool_size': 1,
-            'max_overflow': 0
+            'pool_size': 5,
+            'max_overflow': 10,
+            'connect_args': {
+                'connect_timeout': 10,
+            }
         }
     
     # Initialize extensions
@@ -189,12 +206,28 @@ def create_app():
     # Request error handlers - catch errors during request processing
     @app.before_request
     def before_request():
+        """각 요청 전 데이터베이스 연결 확인 및 복구"""
         try:
-            # Ensure database session is available
-            pass
+            # 데이터베이스 연결 상태 확인 및 자동 복구
+            try:
+                # 간단한 쿼리로 연결 상태 확인
+                db.session.execute(text('SELECT 1'))
+            except (OperationalError, DisconnectionError) as db_error:
+                logger.warning(f"Database connection lost, attempting to reconnect: {db_error}")
+                try:
+                    # 세션 롤백
+                    db.session.rollback()
+                    # 연결 풀 재사용 시도 (pool_pre_ping이 자동으로 처리)
+                    db.session.close()
+                    # 새 세션으로 다시 연결 시도
+                    db.session.execute(text('SELECT 1'))
+                    logger.info("Database connection recovered")
+                except Exception as reconnect_error:
+                    logger.error(f"Failed to reconnect to database: {reconnect_error}")
+                    # 연결 실패해도 요청은 계속 진행 (나중에 더 구체적인 오류 처리)
         except Exception as e:
-            logger.error(f"Error in before_request: {e}")
-            logger.error(traceback.format_exc())
+            # 다른 오류는 로그만 기록하고 계속 진행
+            logger.debug(f"Error in before_request (non-critical): {e}")
     
     @app.teardown_request
     def teardown_request(exception):
@@ -212,12 +245,33 @@ def create_app():
     # Test route for debugging (can be removed in production)
     @app.route('/health')
     def health_check():
-        """Simple health check endpoint"""
+        """Health check endpoint with database status"""
+        
+        health_status = {
+            'status': 'ok',
+            'application': 'running',
+            'database': 'unknown'
+        }
+        
         try:
-            return jsonify({'status': 'ok', 'message': 'Application is running'}), 200
+            # 데이터베이스 연결 테스트
+            db.session.execute(text('SELECT 1'))
+            health_status['database'] = 'connected'
+            status_code = 200
+        except (OperationalError, DisconnectionError) as db_error:
+            health_status['status'] = 'degraded'
+            health_status['database'] = 'disconnected'
+            health_status['database_error'] = str(db_error)[:200]
+            logger.warning(f"Health check: Database connection failed - {db_error}")
+            status_code = 503  # Service Unavailable
         except Exception as e:
+            health_status['status'] = 'error'
+            health_status['database'] = 'error'
+            health_status['error'] = str(e)[:200]
             logger.error(f"Error in health check: {e}")
-            return jsonify({'status': 'error', 'message': str(e)}), 500
+            status_code = 500
+        
+        return jsonify(health_status), status_code
     
     # Root route
     @app.route('/')
