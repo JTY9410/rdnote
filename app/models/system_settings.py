@@ -28,8 +28,12 @@ class SystemSettings(db.Model):
     @classmethod
     def get(cls, key, default=None):
         """Get setting value"""
-        setting = cls.query.filter_by(key=key).first()
-        return setting.value if setting else default
+        try:
+            setting = cls.query.filter_by(key=key).first()
+            return setting.value if setting else default
+        except Exception:
+            # If database query fails, return default
+            return default
     
     @classmethod
     def set(cls, key, value):

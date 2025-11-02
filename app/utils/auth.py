@@ -11,16 +11,27 @@ def check_password(password_hash, password):
 
 def log_audit(user_id, action_type, workspace_id=None, note_id=None, file_id=None, meta_json=None):
     """Create audit log entry"""
-    audit = AuditLog(
-        user_id=user_id,
-        action_type=action_type,
-        workspace_id=workspace_id,
-        note_id=note_id,
-        file_id=file_id,
-        meta_json=meta_json
-    )
-    from app import db
-    db.session.add(audit)
-    db.session.commit()
-    return audit
+    try:
+        audit = AuditLog(
+            user_id=user_id,
+            action_type=action_type,
+            workspace_id=workspace_id,
+            note_id=note_id,
+            file_id=file_id,
+            meta_json=meta_json
+        )
+        from app import db
+        db.session.add(audit)
+        db.session.commit()
+        return audit
+    except Exception as e:
+        # Log error but don't fail the request if audit logging fails
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to create audit log: {e}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return None
 

@@ -19,8 +19,15 @@ def index():
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard.index'))
+    try:
+        if current_user.is_authenticated:
+            return redirect(url_for('dashboard.index'))
+    except AttributeError:
+        # current_user not properly initialized, continue with login
+        pass
+    except Exception as e:
+        current_app.logger.error(f"Error checking authentication status: {e}")
+        # Continue with login flow
     
     if request.method == 'POST':
         # Throttle on repeated failures
@@ -40,34 +47,58 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
         
-        user = User.query.filter_by(email=email).first()
+        if not email or not password:
+            flash('Email and password are required.', 'error')
+            return render_template('auth/login.html', need_captcha=session.get('need_captcha', False))
         
-        if user and check_password(user.password_hash, password):
-            if user.status == 'active':
-                user.last_login_at = datetime.utcnow()
-                db.session.commit()
-                
-                login_user(user)
-                log_audit(user.id, 'USER_LOGIN', meta_json={'email': email})
-                session.pop('login_failures', None)
-                session.pop('need_captcha', None)
-                return redirect(url_for('dashboard.index'))
+        try:
+            user = User.query.filter_by(email=email).first()
+            
+            if user and check_password(user.password_hash, password):
+                if user.status == 'active':
+                    try:
+                        user.last_login_at = datetime.utcnow()
+                        db.session.commit()
+                        
+                        login_user(user)
+                        log_audit(user.id, 'USER_LOGIN', meta_json={'email': email})
+                        session.pop('login_failures', None)
+                        session.pop('need_captcha', None)
+                        return redirect(url_for('dashboard.index'))
+                    except Exception as e:
+                        current_app.logger.error(f"Error during login: {e}")
+                        db.session.rollback()
+                        flash('An error occurred during login. Please try again.', 'error')
+                else:
+                    try:
+                        log_audit(user.id, 'USER_LOGIN_DENIED', meta_json={'reason': f'status={user.status}'})
+                    except Exception:
+                        pass
+                    flash('Your account is not active. Please contact administrator.', 'error')
             else:
-                log_audit(user.id, 'USER_LOGIN_DENIED', meta_json={'reason': f'status={user.status}'})
-                flash('Your account is not active. Please contact administrator.', 'error')
-        else:
-            # failure path
-            session['login_failures'] = fail_count + 1
-            # incremental delay
-            time.sleep(min(2 + fail_count, 8))
-            flash('Invalid email or password.', 'error')
+                # failure path
+                session['login_failures'] = fail_count + 1
+                # incremental delay
+                time.sleep(min(2 + fail_count, 8))
+                flash('Invalid email or password.', 'error')
+        except Exception as e:
+            current_app.logger.error(f"Database error during login: {e}")
+            db.session.rollback()
+            flash('An error occurred. Please try again.', 'error')
     
     return render_template('auth/login.html', need_captcha=session.get('need_captcha', False))
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard.index'))
+    try:
+        if current_user.is_authenticated:
+            return redirect(url_for('dashboard.index'))
+    except AttributeError:
+        # current_user not properly initialized, continue with registration
+        pass
+    except Exception as e:
+        current_app.logger.error(f"Error checking authentication status: {e}")
+        # Continue with registration flow
     
     if request.method == 'POST':
         name = request.form.get('name')
