@@ -7,7 +7,20 @@ def hash_password(password):
 
 def check_password(password_hash, password):
     """Check if password matches hash"""
-    return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+    try:
+        if not password_hash or not password:
+            return False
+        if not isinstance(password_hash, str):
+            return False
+        # Check if it's a valid bcrypt hash format
+        if not password_hash.startswith('$2'):
+            return False
+        return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in check_password: {e}")
+        return False
 
 def log_audit(user_id, action_type, workspace_id=None, note_id=None, file_id=None, meta_json=None):
     """Create audit log entry"""

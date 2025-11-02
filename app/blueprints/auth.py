@@ -19,12 +19,10 @@ def index():
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
+    # Check if user is already authenticated
     try:
-        if current_user.is_authenticated:
+        if hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
             return redirect(url_for('dashboard.index'))
-    except AttributeError:
-        # current_user not properly initialized, continue with login
-        pass
     except Exception as e:
         current_app.logger.error(f"Error checking authentication status: {e}")
         # Continue with login flow
@@ -44,47 +42,80 @@ def login():
                 time.sleep(min(2 + fail_count, 8))
                 return render_template('auth/login.html', need_captcha=True)
         
-        email = request.form.get('email')
-        password = request.form.get('password')
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
         
         if not email or not password:
-            flash('Email and password are required.', 'error')
+            flash('이메일과 비밀번호를 입력해주세요.', 'error')
             return render_template('auth/login.html', need_captcha=session.get('need_captcha', False))
         
         try:
             user = User.query.filter_by(email=email).first()
             
-            if user and check_password(user.password_hash, password):
-                if user.status == 'active':
-                    try:
-                        user.last_login_at = datetime.utcnow()
-                        db.session.commit()
-                        
-                        login_user(user)
-                        log_audit(user.id, 'USER_LOGIN', meta_json={'email': email})
-                        session.pop('login_failures', None)
-                        session.pop('need_captcha', None)
-                        return redirect(url_for('dashboard.index'))
-                    except Exception as e:
-                        current_app.logger.error(f"Error during login: {e}")
-                        db.session.rollback()
-                        flash('An error occurred during login. Please try again.', 'error')
+            if user:
+                # Check password
+                try:
+                    if not user.password_hash:
+                        current_app.logger.warning(f"User {email} has no password hash")
+                        flash('Invalid email or password.', 'error')
+                        session['login_failures'] = fail_count + 1
+                        return render_template('auth/login.html', need_captcha=session.get('need_captcha', False))
+                    
+                    password_valid = check_password(user.password_hash, password)
+                except Exception as e:
+                    current_app.logger.error(f"Error checking password for {email}: {e}")
+                    flash('로그인 중 오류가 발생했습니다. 다시 시도해주세요.', 'error')
+                    return render_template('auth/login.html', need_captcha=session.get('need_captcha', False))
+                
+                if password_valid:
+                    if user.status == 'active':
+                        try:
+                            user.last_login_at = datetime.utcnow()
+                            db.session.commit()
+                            
+                            login_user(user, remember=False)
+                            log_audit(user.id, 'USER_LOGIN', meta_json={'email': email})
+                            session.pop('login_failures', None)
+                            session.pop('need_captcha', None)
+                            flash('로그인되었습니다.', 'success')
+                            return redirect(url_for('dashboard.index'))
+                        except Exception as e:
+                            current_app.logger.error(f"Error during login: {e}")
+                            import traceback
+                            current_app.logger.error(traceback.format_exc())
+                            db.session.rollback()
+                            flash('로그인 중 오류가 발생했습니다. 다시 시도해주세요.', 'error')
+                    else:
+                        try:
+                            log_audit(user.id, 'USER_LOGIN_DENIED', meta_json={'reason': f'status={user.status}'})
+                        except Exception:
+                            pass
+                        status_message = {
+                            'pending': '계정이 아직 승인되지 않았습니다. 관리자의 승인을 기다려주세요.',
+                            'suspended': '계정이 정지되었습니다. 관리자에게 문의하세요.'
+                        }.get(user.status, '계정 상태가 비활성화되었습니다. 관리자에게 문의하세요.')
+                        flash(status_message, 'error')
                 else:
-                    try:
-                        log_audit(user.id, 'USER_LOGIN_DENIED', meta_json={'reason': f'status={user.status}'})
-                    except Exception:
-                        pass
-                    flash('Your account is not active. Please contact administrator.', 'error')
+                    # Invalid password
+                    session['login_failures'] = fail_count + 1
+                    # incremental delay
+                    time.sleep(min(2 + fail_count, 8))
+                    flash('이메일 또는 비밀번호가 올바르지 않습니다.', 'error')
             else:
-                # failure path
+                # User not found
                 session['login_failures'] = fail_count + 1
                 # incremental delay
                 time.sleep(min(2 + fail_count, 8))
-                flash('Invalid email or password.', 'error')
+                flash('이메일 또는 비밀번호가 올바르지 않습니다.', 'error')
         except Exception as e:
             current_app.logger.error(f"Database error during login: {e}")
-            db.session.rollback()
-            flash('An error occurred. Please try again.', 'error')
+            import traceback
+            current_app.logger.error(traceback.format_exc())
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            flash('로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'error')
     
     return render_template('auth/login.html', need_captcha=session.get('need_captcha', False))
 
