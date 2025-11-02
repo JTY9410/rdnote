@@ -4,9 +4,8 @@ import os
 # Set Vercel environment flag
 os.environ['VERCEL'] = '1'
 
+# Create Flask app instance
 app = create_app()
 
-# Export for Vercel serverless
-if __name__ == '__main__':
-    app.run()
+# Vercel automatically detects WSGI apps exported as 'app'
 
