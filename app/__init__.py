@@ -28,8 +28,13 @@ def create_app():
     if not database_url:
         # Vercel/serverless 환경에서는 DATABASE_URL 필수
         if os.environ.get('VERCEL'):
-            logger.error("DATABASE_URL environment variable is required in Vercel/serverless environment")
-            raise ValueError("DATABASE_URL must be set for serverless deployment")
+            error_msg = (
+                "DATABASE_URL environment variable is required in Vercel/serverless environment. "
+                "Please set it in Vercel project settings: "
+                "Settings → Environment Variables → Add DATABASE_URL"
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
         else:
             # 로컬 개발 환경에서만 SQLite 사용
             db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'wecar_db.sqlite')
@@ -39,6 +44,9 @@ def create_app():
     else:
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
         logger.info("Using PostgreSQL database from DATABASE_URL")
+        # Vercel 환경에서 DATABASE_URL 검증
+        if os.environ.get('VERCEL') and not database_url.startswith(('postgresql://', 'postgres://')):
+            logger.warning(f"Unexpected DATABASE_URL format in Vercel: {database_url[:30]}...")
     
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
