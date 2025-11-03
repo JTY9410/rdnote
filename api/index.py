@@ -15,6 +15,7 @@ sys.path.insert(0, project_root)
 # 초기화 오류 저장용
 init_error = None
 init_error_trace = None
+app = None  # Flask app will be initialized below
 
 try:
     # 환경변수 체크 (초기 단계)
@@ -100,4 +101,18 @@ except Exception as e:
                 'VERCEL': os.environ.get('VERCEL')
             }
         }), 500
+
+# Vercel Python builder requires explicit export
+# Export as both 'handler' and 'application' for compatibility
+# Make sure app is defined (it should be in all code paths above)
+if app is None:
+    # Fallback: create a minimal Flask app if somehow app wasn't initialized
+    from flask import Flask, jsonify
+    app = Flask(__name__)
+    @app.route('/')
+    def fallback():
+        return jsonify({'error': 'Application initialization failed - no app instance'}), 500
+
+handler = app
+application = app  # Some WSGI servers use 'application'
 
