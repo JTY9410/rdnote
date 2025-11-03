@@ -77,16 +77,20 @@ def create_app():
     
     if os.environ.get('VERCEL'):
         # Vercel/serverless 환경: 연결 풀 최소화 (서버리스는 함수당 1 연결)
+        connect_args = {
+            'connect_timeout': 10,  # 연결 타임아웃 10초
+        }
+        # sslmode 필요 시에만 설정 (None 값을 전달하지 않도록 주의)
+        if 'sslmode' not in db_uri:
+            connect_args['sslmode'] = 'require'
+
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,  # 연결 전 ping으로 상태 확인
             'pool_recycle': 300,   # 5분마다 연결 재사용
             'pool_size': 1,
             'max_overflow': 0,
             'poolclass': None,  # 기본 연결 풀 사용
-            'connect_args': {
-                'connect_timeout': 10,  # 연결 타임아웃 10초
-                'sslmode': 'require' if 'sslmode' not in db_uri else None,  # PostgreSQL SSL
-            }
+            'connect_args': connect_args,
         }
     elif db_uri.startswith('sqlite'):
         # SQLite 로컬 개발 환경
