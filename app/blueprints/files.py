@@ -163,27 +163,30 @@ def drive_import():
     """Drive import request: enforce 10MB conversion cap and accept allowed entries.
     Payload: { note_id, folder_id?, entries:[{external_id, size}] }
     Response: {accepted:[...], blocked:[{external_id, blocked_reason:"GT_10MB"}]}"""
-    d = request.json or {}
-    note_id = d.get('note_id')
-    folder_id = d.get('folder_id')
-    entries = d.get('entries', [])
-    if not note_id:
-        return {'error': 'note_id is required'}, 400
-    if not can_write_note(current_user.id, note_id):
-        return {'error': 'Permission denied'}, 403
-    accepted, blocked = [], []
-    cap = 10 * 1024 * 1024
-    for e in entries:
-        size = int(e.get('size', 0) or 0)
-        ext_id = e.get('external_id')
-        if size > cap:
-            blocked.append({'external_id': ext_id, 'blocked_reason': 'GT_10MB'})
-        else:
-            accepted.append({'external_id': ext_id})
-    # In a real worker flow, enqueue conversion jobs here.
-    log_audit(current_user.id, 'DRIVE_IMPORT_REQUEST', note_id=note_id,
-              meta_json={'accepted': len(accepted), 'blocked': len(blocked)})
-    return {'accepted': accepted, 'blocked': blocked}, 200
+    try:
+        d = request.json or {}
+        note_id = d.get('note_id')
+        folder_id = d.get('folder_id')
+        entries = d.get('entries', [])
+        if not note_id:
+            return jsonify({'error': 'note_id is required'}), 400
+        if not can_write_note(current_user.id, note_id):
+            return jsonify({'error': 'Permission denied'}), 403
+        accepted, blocked = [], []
+        cap = 10 * 1024 * 1024
+        for e in entries:
+            size = int(e.get('size', 0) or 0)
+            ext_id = e.get('external_id')
+            if size > cap:
+                blocked.append({'external_id': ext_id, 'blocked_reason': 'GT_10MB'})
+            else:
+                accepted.append({'external_id': ext_id})
+        # In a real worker flow, enqueue conversion jobs here.
+        log_audit(current_user.id, 'DRIVE_IMPORT_REQUEST', note_id=note_id,
+                  meta_json={'accepted': len(accepted), 'blocked': len(blocked)})
+        return jsonify({'accepted': accepted, 'blocked': blocked}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @files_bp.route('/files/<int:file_id>/new-version', methods=['POST'])
 @login_required

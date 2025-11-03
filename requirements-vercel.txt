@@ -1,0 +1,22 @@
+# Vercel 서버리스 환경용 requirements
+# 기본 requirements.txt와 동일하지만 추가 최적화 포함
+
+Flask==2.3.3
+Flask-Login==0.6.3
+Flask-WTF==1.2.1
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.5
+SQLAlchemy==2.0.23
+psycopg2-binary==2.9.9
+bcrypt==4.1.2
+python-dotenv==1.0.0
+Werkzeug==2.3.7
+WTForms==3.1.1
+gunicorn==21.2.0
+alembic==1.13.1
+weasyprint==60.2
+reportlab==4.0.9
+
+# Vercel 최적화
+vercel==0.5.4
+

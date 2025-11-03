@@ -6,9 +6,9 @@ import os
 # JSONB는 PostgreSQL 전용이므로, SQLite를 지원하기 위해 조건부로 사용
 try:
     from sqlalchemy.dialects.postgresql import JSONB
-    # PostgreSQL 사용 여부 확인
+    # PostgreSQL 사용 여부 확인 (Vercel 환경에서는 항상 PostgreSQL)
     db_url = os.environ.get('DATABASE_URL', '')
-    if db_url.startswith('postgresql://') or db_url.startswith('postgres://'):
+    if db_url.startswith('postgresql://') or db_url.startswith('postgres://') or os.environ.get('VERCEL'):
         JSON_TYPE = JSONB
     else:
         JSON_TYPE = JSON

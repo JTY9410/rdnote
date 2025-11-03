@@ -23,16 +23,22 @@ def create_app():
     # Configuration
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
     
-    # Database configuration with SQLite fallback
+    # Database configuration
     database_url = os.environ.get('DATABASE_URL')
-    if database_url:
-        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    if not database_url:
+        # Vercel/serverless 환경에서는 DATABASE_URL 필수
+        if os.environ.get('VERCEL'):
+            logger.error("DATABASE_URL environment variable is required in Vercel/serverless environment")
+            raise ValueError("DATABASE_URL must be set for serverless deployment")
+        else:
+            # 로컬 개발 환경에서만 SQLite 사용
+            db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'wecar_db.sqlite')
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+            app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+            logger.info(f"Using SQLite database at: {db_path}")
     else:
-        # Default to SQLite for easier local development
-        db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'wecar_db.sqlite')
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-        logger.info(f"Using SQLite database at: {db_path}")
+        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+        logger.info("Using PostgreSQL database from DATABASE_URL")
     
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
@@ -60,24 +66,28 @@ def create_app():
     # pool_pre_ping: 연결 전 상태 확인하여 끊어진 연결 자동 재연결
     # pool_recycle: 연결을 주기적으로 재사용하여 타임아웃 방지
     db_uri = app.config['SQLALCHEMY_DATABASE_URI']
-    if db_uri.startswith('sqlite'):
-        # SQLite doesn't need connection pooling
+    
+    if os.environ.get('VERCEL'):
+        # Vercel/serverless 환경: 연결 풀 최소화 (서버리스는 함수당 1 연결)
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_pre_ping': True,  # 연결 전 ping으로 상태 확인
+            'pool_recycle': 300,   # 5분마다 연결 재사용
+            'pool_size': 1,
+            'max_overflow': 0,
+            'poolclass': None,  # 기본 연결 풀 사용
+            'connect_args': {
+                'connect_timeout': 10,  # 연결 타임아웃 10초
+                'sslmode': 'require' if 'sslmode' not in db_uri else None,  # PostgreSQL SSL
+            }
+        }
+    elif db_uri.startswith('sqlite'):
+        # SQLite 로컬 개발 환경
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'connect_args': {
                 'check_same_thread': False,  # Allow multi-threaded access
                 'timeout': 20,  # SQLite timeout
             },
             'pool_pre_ping': False,  # Not needed for SQLite
-        }
-    elif os.environ.get('VERCEL'):
-        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-            'pool_pre_ping': True,  # 연결 전 ping으로 상태 확인
-            'pool_recycle': 300,   # 5분마다 연결 재사용
-            'pool_size': 1,
-            'max_overflow': 0,
-            'connect_args': {
-                'connect_timeout': 10,  # 연결 타임아웃 10초
-            }
         }
     else:
         # PostgreSQL 로컬 환경 설정
