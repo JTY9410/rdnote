@@ -22,7 +22,18 @@ def create_app():
     
     # Configuration
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://wecar_user:wecar_pass@localhost:5432/wecar_db')
+    
+    # Database configuration with SQLite fallback
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url:
+        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    else:
+        # Default to SQLite for easier local development
+        db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'wecar_db.sqlite')
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+        logger.info(f"Using SQLite database at: {db_path}")
+    
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     # Ensure error handlers work even in debug mode
@@ -48,7 +59,17 @@ def create_app():
     # SQLAlchemy connection pool settings
     # pool_pre_ping: 연결 전 상태 확인하여 끊어진 연결 자동 재연결
     # pool_recycle: 연결을 주기적으로 재사용하여 타임아웃 방지
-    if os.environ.get('VERCEL'):
+    db_uri = app.config['SQLALCHEMY_DATABASE_URI']
+    if db_uri.startswith('sqlite'):
+        # SQLite doesn't need connection pooling
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'connect_args': {
+                'check_same_thread': False,  # Allow multi-threaded access
+                'timeout': 20,  # SQLite timeout
+            },
+            'pool_pre_ping': False,  # Not needed for SQLite
+        }
+    elif os.environ.get('VERCEL'):
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,  # 연결 전 ping으로 상태 확인
             'pool_recycle': 300,   # 5분마다 연결 재사용
@@ -59,7 +80,7 @@ def create_app():
             }
         }
     else:
-        # 로컬 환경도 동일한 설정 적용
+        # PostgreSQL 로컬 환경 설정
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,
             'pool_recycle': 300,
