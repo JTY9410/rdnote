@@ -19,27 +19,39 @@ app = None  # Flask app will be initialized below
 
 # Wrap all initialization in try-except to prevent crashes
 try:
-    # 환경변수 체크 (초기 단계)
-    if not os.environ.get('DATABASE_URL'):
-        raise ValueError(
-            "DATABASE_URL environment variable is not set. "
-            "Please set it in Vercel project settings: "
-            "Settings → Environment Variables → Add DATABASE_URL"
-        )
+    # 환경변수 체크 (초기 단계) - 임시로 완화
+    database_url = os.environ.get('DATABASE_URL')
+    if not database_url:
+        print("⚠️  DATABASE_URL not set, will use SQLite fallback")
+        # 임시로 에러 대신 경고만 출력
+        # raise ValueError(
+        #     "DATABASE_URL environment variable is not set. "
+        #     "Please set it in Vercel project settings: "
+        #     "Settings → Environment Variables → Add DATABASE_URL"
+        # )
     
     # 앱 import 및 생성 - wrap individual imports to catch module-level errors
     try:
+        print("🔄 Importing app module...")
         from app import create_app
+        print("✅ App module imported successfully")
     except Exception as import_error:
+        print(f"❌ Failed to import app module: {import_error}")
+        import traceback
+        print(f"Import traceback: {traceback.format_exc()}")
         raise ImportError(f"Failed to import app module: {import_error}") from import_error
     
     try:
+        print("🔄 Creating Flask app...")
         app = create_app()
         # 초기화 성공 로그
         print("✅ Application initialized successfully")
         if app and app.config.get('SQLALCHEMY_DATABASE_URI'):
             print(f"📊 Database URI configured: {app.config['SQLALCHEMY_DATABASE_URI'][:50]}...")
     except Exception as create_error:
+        print(f"❌ Failed to create Flask app: {create_error}")
+        import traceback
+        print(f"Create app traceback: {traceback.format_exc()}")
         raise RuntimeError(f"Failed to create Flask app: {create_error}") from create_error
     
 except ValueError as ve:
