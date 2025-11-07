@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}연구노트 목록 - WECar 연구개발일지{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notes-list-container {
+        padding: 2rem 0;
+    }
+    .note-card {
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        padding: 1.5rem;
+        height: 100%;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+    .note-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+    }
+    .note-card:hover {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        transform: translateY(-4px);
+    }
+    .note-card-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 1rem;
+        line-height: 1.4;
+    }
+    .note-card-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .note-info-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    .note-info-item i {
+        width: 20px;
+        color: #dc3545;
+    }
+    .note-info-item strong {
+        color: #1a1a1a;
+        min-width: 80px;
+    }
+    .note-card-footer {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .note-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-weight: 600;
+    }
+    .note-badge.owner {
+        background: #dc3545;
+        color: white;
+    }
+    .note-badge.writer {
+        background: #0d6efd;
+        color: white;
+    }
+    .note-badge.reader {
+        background: #6c757d;
+        color: white;
+    }
+    .note-badge.reviewer {
+        background: #198754;
+        color: white;
+    }
+    .create-note-card {
+        border: 2px dashed #dee2e6;
+        border-radius: 16px;
+        padding: 1.5rem;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        background: #f8f9fa;
+    }
+    .create-note-card:hover {
+        border-color: #dc3545;
+        background: #fff;
+        transform: translateY(-4px);
+    }
+    .create-note-card i {
+        font-size: 3rem;
+        color: #dc3545;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="notes-list-container">
+    <div class="row">
+        <div class="col-md-3 col-lg-2 mb-4">
+            <div class="card" style="position: sticky; top: 20px;">
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            <a href="{{ url_for('dashboard.index') }}" class="text-decoration-none d-flex align-items-center">
+                                <i class="bi bi-speedometer2 me-2"></i> 대시보드
+                            </a>
+                        </li>
+                        <li class="list-group-item">
+                            <a href="#" class="text-decoration-none d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#quickUploadModal">
+                                <i class="bi bi-file-earmark-plus me-2"></i> 연구파일 추가
+                            </a>
+                        </li>
+                        <li class="list-group-item active">
+                            <a href="{{ url_for('notes.index') }}" class="text-decoration-none d-flex align-items-center">
+                                <i class="bi bi-journal-text me-2"></i> 연구노트 목록
+                            </a>
+                        </li>
+                        <li class="list-group-item">
+                            <a href="{{ url_for('dashboard.files_status') }}" class="text-decoration-none d-flex align-items-center">
+                                <i class="bi bi-files me-2"></i> 연구파일 현황
+                            </a>
+                        </li>
+                        <li class="list-group-item">
+                            <a href="{{ url_for('dashboard.notes_status') }}" class="text-decoration-none d-flex align-items-center">
+                                <i class="bi bi-clipboard-data me-2"></i> 연구노트 현황
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9 col-lg-10">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>연구노트 목록</h1>
+                <a href="{{ url_for('notes.new') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> 연구노트 생성
+                </a>
+            </div>
+            
+            <div class="row g-4">
+                <!-- 연구노트 생성 카드 -->
+                <div class="col-md-6 col-lg-4">
+                    <div class="create-note-card" onclick="window.location.href='{{ url_for('notes.new') }}'">
+                        <i class="bi bi-plus-circle"></i>
+                        <h5 class="mt-2 mb-0">새 연구노트 생성</h5>
+                        <p class="text-muted small mt-2 mb-0">새로운 연구과제를 시작하세요</p>
+                    </div>
+                </div>
+                
+                <!-- 연구노트 카드들 -->
+                {% for data in notes_data %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="note-card" onclick="window.location.href='{{ url_for('notes.detail', note_id=data.note.id) }}'">
+                        <div class="note-card-title">{{ data.note.title }}</div>
+                        <div class="note-card-info">
+                            <div class="note-info-item">
+                                <i class="bi bi-person-badge"></i>
+                                <strong>책임자:</strong>
+                                <span>{{ data.owner.name if data.owner else '-' }}</span>
+                            </div>
+                            <div class="note-info-item">
+                                <i class="bi bi-hash"></i>
+                                <strong>과제번호:</strong>
+                                <span>{{ data.note.project_code or '-' }}</span>
+                            </div>
+                            <div class="note-info-item">
+                                <i class="bi bi-calendar-range"></i>
+                                <strong>기간:</strong>
+                                <span>
+                                    {% if data.note.start_date and data.note.end_date %}
+                                        {{ data.note.start_date.strftime('%Y.%m.%d') }} ~ {{ data.note.end_date.strftime('%Y.%m.%d') }}
+                                    {% elif data.note.start_date %}
+                                        {{ data.note.start_date.strftime('%Y.%m.%d') }} ~ 진행중
+                                    {% else %}
+                                        미설정
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="note-info-item">
+                                <i class="bi bi-people"></i>
+                                <strong>참여인원:</strong>
+                                <span>{{ data.members_count }}명</span>
+                            </div>
+                            <div class="note-info-item">
+                                <i class="bi bi-file-earmark"></i>
+                                <strong>연구파일:</strong>
+                                <span>{{ data.files_count }}개</span>
+                            </div>
+                        </div>
+                        <div class="note-card-footer">
+                            <div class="d-flex flex-column gap-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="note-badge {{ data.user_role.lower() if data.user_role else 'reader' }}">
+                                        {% if data.user_role == 'OWNER' %}책임자
+                                        {% elif data.user_role == 'WRITER' %}작성자
+                                        {% elif data.user_role == 'REVIEWER' %}검토자
+                                        {% else %}열람자{% endif %}
+                                    </span>
+                                    <span class="badge bg-{% if (data.note.approval_stage or 'DRAFT') == 'DRAFT' %}warning{% elif (data.note.approval_stage or 'DRAFT') == 'REVIEWED' %}info{% elif (data.note.approval_stage or 'DRAFT') == 'APPROVED' %}success{% else %}secondary{% endif %}">
+                                        {% if (data.note.approval_stage or 'DRAFT') == 'DRAFT' %}기록 중(검토 전)
+                                        {% elif (data.note.approval_stage or 'DRAFT') == 'REVIEWED' %}검토자 확인 완료
+                                        {% elif (data.note.approval_stage or 'DRAFT') == 'APPROVED' %}책임자 최종 승인
+                                        {% else %}미설정{% endif %}
+                                    </span>
+                                </div>
+                                <i class="bi bi-chevron-right text-end"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            {% if not notes_data %}
+            <div class="alert alert-info mt-4">
+                <i class="bi bi-info-circle"></i> 참여 중인 연구노트가 없습니다. 새 연구노트를 생성해보세요.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

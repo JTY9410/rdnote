@@ -13,5 +13,8 @@ class Comment(db.Model):
     body = db.Column(db.Text, nullable=False)
     pinned = db.Column(db.Boolean, default=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    
+    # Relationships
+    author = db.relationship('User', backref='comments', lazy='joined')
 
 

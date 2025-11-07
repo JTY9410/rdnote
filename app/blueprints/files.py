@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, send_file, flash, url_for, current_app
+from flask import Blueprint, request, jsonify, send_file, flash, url_for, current_app, redirect, render_template
 from flask_login import login_required, current_user
 from app import db
 from app.models.file import File, FileTag
@@ -15,6 +15,47 @@ import hashlib
 from werkzeug.utils import secure_filename
 
 files_bp = Blueprint('files', __name__)
+
+@files_bp.route('/files/<int:file_id>')
+@login_required
+def detail(file_id):
+    """파일 상세 내역 페이지"""
+    from app.models.comment import Comment
+    from app.models.user import User
+    
+    file_record = File.query.get_or_404(file_id)
+    note = ResearchNote.query.get_or_404(file_record.note_id)
+    
+    # Check access
+    if not can_access_note(current_user.id, file_record.note_id):
+        flash('Access denied.', 'error')
+        return redirect(url_for('dashboard.index'))
+    
+    # Get all versions
+    versions = File.query.filter_by(
+        note_id=file_record.note_id,
+        display_name=file_record.display_name,
+        is_deleted=False
+    ).order_by(File.version_number.desc()).all()
+    
+    # Get comments
+    comments = Comment.query.filter_by(file_id=file_id).order_by(Comment.created_at.asc()).all()
+    
+    # Get folder
+    folder = Folder.query.get(file_record.folder_id) if file_record.folder_id else None
+    
+    # Get members for permission check
+    from app.models.research_note import ResearchNoteMember
+    members = ResearchNoteMember.query.filter_by(note_id=note.id).all()
+    
+    return render_template('files/detail.html',
+                         file=file_record,
+                         note=note,
+                         folder=folder,
+                         versions=versions,
+                         comments=comments,
+                         members=members)
+
 @files_bp.route('/notes/<int:note_id>/files', methods=['POST'])
 @login_required
 def upload_to_note(note_id):
@@ -468,6 +509,15 @@ def download(file_id):
     
     # Send file
     upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    # Ensure absolute path
+    if not os.path.isabs(upload_folder):
+        # In Docker, files are in /app, so resolve relative to /app
+        # For local development, use app root
+        if os.path.exists('/app'):
+            upload_folder = os.path.join('/app', upload_folder)
+        else:
+            upload_folder = os.path.join(current_app.root_path, '..', upload_folder)
+            upload_folder = os.path.abspath(upload_folder)
     filepath = os.path.join(upload_folder, 'files', file_record.stored_filename)
     if not os.path.exists(filepath):
         flash('File not found.', 'error')

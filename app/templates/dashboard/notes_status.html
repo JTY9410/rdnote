@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}연구노트 현황 - WECar 연구개발일지{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notes-status-container {
+        padding: 2rem 0;
+    }
+    .note-stat-card {
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+    .note-stat-card:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+    }
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    .stat-icon {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        background: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="notes-status-container">
+    <div class="row">
+        <div class="col-md-3 col-lg-2 mb-4">
+            <div class="card" style="position: sticky; top: 20px;">
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            <a href="{{ url_for('dashboard.index') }}" class="text-decoration-none d-flex align-items-center">
+                                <i class="bi bi-speedometer2 me-2"></i> 대시보드
+                            </a>
+                        </li>
+                        <li class="list-group-item">
+                            <a href="#" class="text-decoration-none d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#quickUploadModal">
+                                <i class="bi bi-file-earmark-plus me-2"></i> 연구파일 추가
+                            </a>
+                        </li>
+                        <li class="list-group-item">
+                            <a href="{{ url_for('notes.index') }}" class="text-decoration-none d-flex align-items-center">
+                                <i class="bi bi-journal-text me-2"></i> 연구노트 목록
+                            </a>
+                        </li>
+                        <li class="list-group-item">
+                            <a href="{{ url_for('dashboard.files_status') }}" class="text-decoration-none d-flex align-items-center">
+                                <i class="bi bi-files me-2"></i> 연구파일 현황
+                            </a>
+                        </li>
+                        <li class="list-group-item active">
+                            <a href="{{ url_for('dashboard.notes_status') }}" class="text-decoration-none d-flex align-items-center">
+                                <i class="bi bi-clipboard-data me-2"></i> 연구노트 현황
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9 col-lg-10">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>연구노트 현황</h1>
+                <span class="badge bg-primary">총 {{ notes_stats|length }}개 연구노트</span>
+            </div>
+            
+            {% if notes_stats %}
+            <div class="row g-4">
+                {% for stat in notes_stats %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="note-stat-card">
+                        <h5 class="mb-3">{{ stat.note.title }}</h5>
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="bi bi-file-earmark"></i>
+                            </div>
+                            <div>
+                                <strong>연구파일:</strong> {{ stat.files_count }}개
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="bi bi-folder"></i>
+                            </div>
+                            <div>
+                                <strong>연구폴더:</strong> {{ stat.folders_count }}개
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="bi bi-people"></i>
+                            </div>
+                            <div>
+                                <strong>참여인원:</strong> {{ stat.members_count }}명
+                            </div>
+                        </div>
+                        {% if stat.latest_upload %}
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="bi bi-clock"></i>
+                            </div>
+                            <div>
+                                <strong>최근 업로드:</strong> {{ stat.latest_upload.strftime('%Y-%m-%d') }}
+                            </div>
+                        </div>
+                        {% endif %}
+                        <div class="mt-3">
+                            <a href="{{ url_for('notes.detail', note_id=stat.note.id) }}" class="btn btn-primary btn-sm w-100">
+                                상세보기
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                참여 중인 연구노트가 없습니다.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+

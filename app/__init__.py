@@ -102,15 +102,20 @@ def create_app():
             'pool_pre_ping': False,  # Not needed for SQLite
         }
     else:
-        # PostgreSQL 로컬 환경 설정
+        # PostgreSQL 로컬 환경 설정 (Docker, 로컬 개발 등)
+        connect_args = {
+            'connect_timeout': 10,
+        }
+        # 로컬 환경에서는 SSL 비활성화 (Docker 내부 통신은 안전)
+        if 'sslmode' not in db_uri:
+            connect_args['sslmode'] = 'disable'
+        
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,
             'pool_recycle': 300,
             'pool_size': 5,
             'max_overflow': 10,
-            'connect_args': {
-                'connect_timeout': 10,
-            }
+            'connect_args': connect_args
         }
     
     # Initialize extensions

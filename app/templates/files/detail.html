@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block title %}{{ file.display_name }} - 파일 상세 내역{% endblock %}
+
+{% block extra_css %}
+<style>
+    .file-detail-container {
+        padding: 2rem 0;
+    }
+    .file-info-card {
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    .comment-item {
+        border-left: 3px solid #dc3545;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+    }
+    .comment-author {
+        font-weight: 600;
+        color: #dc3545;
+    }
+    .comment-meta {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    .version-badge {
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="file-detail-container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">
+                <i class="bi bi-file-earmark"></i> {{ file.display_name }}
+            </h2>
+            <nav aria-label="breadcrumb" class="mt-2">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">대시보드</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('notes.detail', note_id=note.id) }}">{{ note.title }}</a></li>
+                    <li class="breadcrumb-item active">{{ file.display_name }}</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{{ url_for('notes.detail', note_id=note.id) }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> 목록으로
+            </a>
+            <a href="{{ url_for('files.download', file_id=file.id) }}" class="btn btn-primary">
+                <i class="bi bi-download"></i> 다운로드
+            </a>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <!-- 파일 정보 -->
+            <div class="card file-info-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> 파일 정보</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>파일명:</strong> {{ file.display_name }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>버전:</strong> <span class="badge bg-primary version-badge">v{{ file.version_number }}</span>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>형식:</strong> {{ file.mime_type or 'N/A' }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>크기:</strong> {{ (file.size_bytes / 1024 / 1024)|round(2) }} MB
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>작성일자:</strong> {{ file.created_date.strftime('%Y-%m-%d') if file.created_date else '-' }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>시점인증일자:</strong> 
+                            <small class="text-success">
+                                <i class="bi bi-shield-check"></i>
+                                {{ file.timestamp_certified_at.strftime('%Y-%m-%d %H:%M:%S') if file.timestamp_certified_at else '-' }}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>작성자:</strong> {{ file.uploader_user.name if file.uploader_user else '-' }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>업로드일:</strong> {{ file.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') if file.uploaded_at else '-' }}
+                        </div>
+                    </div>
+                    {% if file.short_desc %}
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <strong>실험 목적:</strong> {{ file.short_desc }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if file.tags %}
+                    <div class="row">
+                        <div class="col-12">
+                            <strong>태그:</strong>
+                            {% for tag in file.tags %}
+                            <span class="badge bg-info me-1">{{ tag.tag }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- 코멘트 -->
+            <div class="card file-info-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-chat-left-text"></i> 코멘트</h5>
+                    {% if can_write_note(current_user.id, note.id) %}
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addCommentModal">
+                        <i class="bi bi-plus-circle"></i> 코멘트 추가
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if comments %}
+                    {% for comment in comments %}
+                    <div class="comment-item">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <span class="comment-author">{{ comment.author.name if comment.author else '-' }}</span>
+                                {% if comment.page_from and comment.page_to %}
+                                <span class="badge bg-secondary ms-2">페이지 {{ comment.page_from }}{% if comment.page_to != comment.page_from %}~{{ comment.page_to }}{% endif %}</span>
+                                {% endif %}
+                            </div>
+                            <small class="comment-meta">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') if comment.created_at else '-' }}</small>
+                        </div>
+                        <div class="comment-body">
+                            {{ comment.body }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted text-center py-4">등록된 코멘트가 없습니다.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <!-- 버전 히스토리 -->
+            <div class="card file-info-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> 버전 히스토리</h5>
+                </div>
+                <div class="card-body">
+                    {% if versions %}
+                    <div class="list-group list-group-flush">
+                        {% for version in versions %}
+                        <div class="list-group-item {% if version.id == file.id %}active{% endif %}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="badge bg-primary version-badge">v{{ version.version_number }}</span>
+                                    <small class="text-muted d-block mt-1">
+                                        {{ version.uploaded_at.strftime('%Y-%m-%d %H:%M') if version.uploaded_at else '-' }}
+                                    </small>
+                                </div>
+                                <a href="{{ url_for('files.download', file_id=version.id) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">버전 정보가 없습니다.</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- 연구노트 정보 -->
+            <div class="card file-info-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-journal-text"></i> 연구노트</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>{{ note.title }}</strong></p>
+                    <p class="small text-muted mb-0">
+                        {% if folder %}
+                        <i class="bi bi-folder"></i> {{ folder.name }}
+                        {% else %}
+                        <i class="bi bi-house"></i> 연구노트 홈
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 코멘트 추가 Modal -->
+{% if can_write %}
+<div class="modal fade" id="addCommentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-chat-left-text"></i> 코멘트 추가</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addCommentForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="commentPageFrom" class="form-label">페이지 시작</label>
+                        <input type="number" class="form-control" id="commentPageFrom" min="1" value="1">
+                    </div>
+                    <div class="mb-3">
+                        <label for="commentPageTo" class="form-label">페이지 끝</label>
+                        <input type="number" class="form-control" id="commentPageTo" min="1" value="1">
+                    </div>
+                    <div class="mb-3">
+                        <label for="commentBody" class="form-label">코멘트 내용 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="commentBody" rows="5" maxlength="2000" required placeholder="코멘트를 입력하세요 (최대 2000자)"></textarea>
+                        <small class="text-muted">남은 글자 수: <span id="commentCharCount">2000</span></small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">코멘트 추가</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+{% if can_write %}
+// 코멘트 글자 수 카운트
+document.getElementById('commentBody')?.addEventListener('input', function(e) {
+    const remaining = 2000 - e.target.value.length;
+    document.getElementById('commentCharCount').textContent = remaining;
+});
+
+// 코멘트 추가
+document.getElementById('addCommentForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const pageFrom = parseInt(document.getElementById('commentPageFrom').value) || 1;
+    const pageTo = parseInt(document.getElementById('commentPageTo').value) || pageFrom;
+    const body = document.getElementById('commentBody').value.trim();
+    
+    if (!body) {
+        alert('코멘트 내용을 입력해주세요.');
+        return;
+    }
+    
+    if (body.length > 2000) {
+        alert('코멘트는 최대 2000자까지 가능합니다.');
+        return;
+    }
+    
+    fetch('/comments', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            file_id: {{ file.id }},
+            page_from: pageFrom,
+            page_to: pageTo,
+            body: body
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('코멘트 추가 실패: ' + data.error);
+        } else {
+            location.reload();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('코멘트 추가 중 오류가 발생했습니다.');
+    });
+});
+{% endif %}
+</script>
+{% endblock %}
+

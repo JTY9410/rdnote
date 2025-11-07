@@ -23,9 +23,25 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 48px;
-            color: rgba(200, 0, 0, 0.1);
+            font-size: 36px;
+            color: rgba(200, 0, 0, 0.15);
             z-index: -1;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        
+        .watermark-header {
+            position: fixed;
+            top: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 10pt;
+            color: rgba(200, 0, 0, 0.6);
+            font-weight: bold;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            border-bottom: 1px solid rgba(200, 0, 0, 0.3);
         }
         
         h1 {
@@ -71,17 +87,20 @@
     </style>
 </head>
 <body>
+    <div class="watermark-header">
+        WECar 연구개발일지 / {{ note.title }} / 기밀 / 무단배포금지 / {{ export_date.strftime('%Y-%m-%d %H:%M:%S') }} / 반출자:{{ current_user.email }}
+    </div>
     <div class="watermark">
-        WECar 연구개발일지 / {{ note.title }} / 기밀 / 무단배포금지 / {{ export_date.strftime('%Y-%m-%d %H:%M:%S') }} / {{ current_user.email }}
+        WECar 연구개발일지 / {{ note.title }} / 기밀 / 무단배포금지 / {{ export_date.strftime('%Y-%m-%d %H:%M:%S') }} / 반출자:{{ current_user.email }}
     </div>
     
-    {% if note.approval_stage != 'APPROVED' %}
+    {% if (note.approval_stage or 'DRAFT') != 'APPROVED' %}
     <div style="background-color: #fff3cd; border: 2px solid #ffc107; padding: 20px; margin: 20px 0; border-radius: 8px;">
         <h3 style="color: #856404; margin: 0 0 10px 0;">
             <i class="bi bi-exclamation-triangle"></i> 주의
         </h3>
         <p style="margin: 5px 0; color: #856404;">
-            이 문서는 아직 최종 승인되지 않았습니다 (현재 상태: {{ '검토 대기' if note.approval_stage == 'DRAFT' else '검토자 확인 완료' }}).
+            이 문서는 아직 최종 승인되지 않았습니다 (현재 상태: {{ '검토 대기' if (note.approval_stage or 'DRAFT') == 'DRAFT' else '검토자 확인 완료' }}).
             <br>외부 제출 전 책임자 최종 승인 필요.
             <br><strong>법적 증빙력은 OWNER 최종 승인 후에만 발생합니다.</strong>
         </p>
@@ -126,9 +145,9 @@
             <tr>
                 <th>파일명</th>
                 <th>버전</th>
-                <th>작성일</th>
+                <th>실험일<br><small>(사용자입력)</small></th>
+                <th>기록시각<br><small>(시스템)</small></th>
                 <th>업로더</th>
-                <th>시점인증</th>
                 <th>태그</th>
                 <th>목적/조건</th>
             </tr>
@@ -138,9 +157,18 @@
             <tr>
                 <td>{{ file.display_name }}</td>
                 <td>v{{ file.version_number }}</td>
-                <td>{{ file.created_date.strftime('%Y-%m-%d') }}</td>
-                <td>{{ file.uploader_user.name }}</td>
-                <td>{{ file.timestamp_certified_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>
+                    <strong>{{ file.created_date.strftime('%Y-%m-%d') if file.created_date else '-' }}</strong>
+                    <br><small class="text-muted">실험일</small>
+                </td>
+                <td>
+                    <small class="text-success">
+                        <i class="bi bi-shield-check"></i>
+                        {{ file.timestamp_certified_at.strftime('%Y-%m-%d %H:%M:%S') if file.timestamp_certified_at else '-' }}
+                    </small>
+                    <br><small class="text-muted">시점인증</small>
+                </td>
+                <td>{{ file.uploader_user.name if file.uploader_user else '-' }}</td>
                 <td>{{ file.tags_list|join(', ') if file.tags_list else '-' }}</td>
                 <td>{{ file.short_desc or '-' }}</td>
             </tr>
@@ -173,37 +201,53 @@
     </table>
     {% endif %}
     
-    <h2>승인/서명</h2>
+    <h2>결재(서명) 영역</h2>
     <div class="signature-section">
-        <div class="signature-box">
-            <h3>책임자 (OWNER)</h3>
-            <p><strong>이름:</strong> {{ owner.name }}</p>
-            <p><strong>소속:</strong> {{ owner.org_name or '-' }}</p>
-            {% if owner.signature_path %}
-            <img src="{{ url_for('static', filename=owner.signature_path) if not owner.signature_path.startswith('http') else owner.signature_path }}" class="signature">
-            {% else %}
-            <p style="color: red;">서명 미등록</p>
-            {% endif %}
-            <p><strong>승인일시:</strong> {{ export_date.strftime('%Y-%m-%d %H:%M:%S') }}</p>
-            <p><strong>선언문:</strong></p>
-            <p><small>본인은 본 연구개발일지의 기술 내용이 해당 시점에 실제 수행·관찰된 결과임을 확인하며, 그 진실성과 성실성을 보증합니다.</small></p>
-        </div>
-        
         {% if reviewer %}
         <div class="signature-box">
             <h3>검토자 (REVIEWER)</h3>
             <p><strong>이름:</strong> {{ reviewer.name }}</p>
             <p><strong>소속:</strong> {{ reviewer.org_name or '-' }}</p>
-            {% if reviewer.signature_path %}
-            <img src="{{ url_for('static', filename=reviewer.signature_path) if not reviewer.signature_path.startswith('http') else reviewer.signature_path }}" class="signature">
+            {% if reviewer_signature_url %}
+            <img src="{{ reviewer_signature_url }}" class="signature" alt="검토자 서명">
             {% else %}
-            <p style="color: red;">서명 미등록</p>
+            <p style="color: red; border: 1px dashed #ccc; padding: 20px; text-align: center;">서명 미등록</p>
             {% endif %}
-            <p><strong>확인일시:</strong> {{ export_date.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+            <p><strong>검토일시:</strong> 
+                {% if (note.approval_stage or 'DRAFT') in ['REVIEWED', 'APPROVED'] %}
+                    {{ export_date.strftime('%Y-%m-%d %H:%M:%S') }}
+                {% else %}
+                    미검토
+                {% endif %}
+            </p>
             <p><strong>선언문:</strong></p>
-            <p><small>본인은 본 연구기록을 확인·검토하였으며, 해당 기록이 명시된 시점에 존재했음을 확인합니다.</small></p>
+            <p style="border: 1px solid #ddd; padding: 10px; background: #f9f9f9;">
+                <small>본인은 명시된 시점에 본 연구 데이터가 존재했음을 확인합니다.</small>
+            </p>
         </div>
         {% endif %}
+        
+        <div class="signature-box">
+            <h3>책임자 (OWNER)</h3>
+            <p><strong>이름:</strong> {{ owner.name if owner else '-' }}</p>
+            <p><strong>직함/소속:</strong> {{ owner.org_name or '-' }}</p>
+            {% if owner_signature_url %}
+            <img src="{{ owner_signature_url }}" class="signature" alt="책임자 서명">
+            {% else %}
+            <p style="color: red; border: 1px dashed #ccc; padding: 20px; text-align: center;">서명 미등록</p>
+            {% endif %}
+            <p><strong>최종 승인일시:</strong> 
+                {% if (note.approval_stage or 'DRAFT') == 'APPROVED' %}
+                    {{ export_date.strftime('%Y-%m-%d %H:%M:%S') }}
+                {% else %}
+                    미승인
+                {% endif %}
+            </p>
+            <p><strong>선언문:</strong></p>
+            <p style="border: 1px solid #ddd; padding: 10px; background: #f9f9f9;">
+                <small>본인은 본 연구개발일지 내용이 해당 기간에 실제 수행된 결과임을 확인하며, 그 진실성과 성실성을 보증합니다.</small>
+            </p>
+        </div>
     </div>
 </body>
 </html>

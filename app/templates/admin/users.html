@@ -18,67 +18,125 @@
     <a href="{{ url_for('help.guno_guide') }}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-book"></i> 작성 가이드</a>
 </div>
 
-<div class="d-flex justify-content-between align-items-center mb-3" id="add-user">
-    <h2 class="mb-0">사용자 관리</h2>
+<div class="d-flex justify-content-between align-items-center mb-4" id="add-user">
+    <h2 class="mb-0"><i class="bi bi-people"></i> 사용자 관리</h2>
     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
         <i class="bi bi-person-plus"></i> 사용자 추가
     </button>
-    
 </div>
 
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>이름</th>
-            <th>이메일</th>
-            <th>소속</th>
-            <th>상태</th>
-            <th>역할</th>
-            <th>서명</th>
-            <th>액션</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for item in users_with_roles %}
-        {% set user = item.user %}
-        <tr>
-            <td>{{ user.name }}</td>
-            <td>{{ user.email }}</td>
-            <td>{{ user.org_name or '-' }}</td>
-            <td>
-                <span class="badge bg-{{ 'success' if user.status == 'active' else 'warning' if user.status == 'pending' else 'danger' }}">
-                    {{ user.status }}
-                </span>
-            </td>
-            <td>
-                <span class="badge bg-{{ 'primary' if item.role_label=='관리자' else 'warning' if item.role_label=='연구책임자' else 'secondary' }}">{{ item.role_label }}</span>
-            </td>
-            <td>
-                {% if user.signature_path %}
-                    <span class="text-success"><i class="bi bi-check-circle"></i></span>
-                {% else %}
-                    <span class="text-danger"><i class="bi bi-x-circle"></i></span>
-                {% endif %}
-            </td>
-            <td>
-                <form method="POST" action="{{ url_for('admin.update_user_status', user_id=user.id) }}" class="d-inline">
-                    <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="pending" {{ 'selected' if user.status == 'pending' }}>대기</option>
-                        <option value="active" {{ 'selected' if user.status == 'active' }}>활성</option>
-                        <option value="suspended" {{ 'selected' if user.status == 'suspended' }}>정지</option>
-                    </select>
-                </form>
-                <button type="button" class="btn btn-sm btn-outline-secondary" 
-                        data-bs-toggle="modal" data-bs-target="#editUserModal"
-                        data-id="{{ user.id }}" data-name="{{ user.name }}" data-email="{{ user.email }}"
-                        data-org="{{ user.org_name or '' }}" data-dept="{{ user.department or '' }}" data-admin="{{ '1' if user.is_admin else '0' }}">
-                    수정
+<!-- 검색 및 필터 -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label for="userSearch" class="form-label">검색</label>
+                <input type="text" class="form-control" id="userSearch" placeholder="이름, 이메일, 소속으로 검색...">
+            </div>
+            <div class="col-md-3">
+                <label for="statusFilter" class="form-label">상태</label>
+                <select class="form-select" id="statusFilter">
+                    <option value="">전체</option>
+                    <option value="active">활성</option>
+                    <option value="pending">대기</option>
+                    <option value="suspended">정지</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="roleFilter" class="form-label">역할</label>
+                <select class="form-select" id="roleFilter">
+                    <option value="">전체</option>
+                    <option value="관리자">관리자</option>
+                    <option value="연구책임자">연구책임자</option>
+                    <option value="연구원">연구원</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="button" class="btn btn-outline-secondary w-100" onclick="resetFilters()">
+                    <i class="bi bi-arrow-clockwise"></i> 초기화
                 </button>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 사용자 카드 목록 -->
+<div class="row g-4" id="userCards">
+    {% for item in users_with_roles %}
+    {% set user = item.user %}
+    <div class="col-md-6 col-lg-4 user-card" 
+         data-name="{{ user.name|lower }}" 
+         data-email="{{ user.email|lower }}" 
+         data-org="{{ (user.org_name or '')|lower }}"
+         data-status="{{ user.status }}"
+         data-role="{{ item.role_label }}">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h5 class="card-title mb-1">{{ user.name }}</h5>
+                        <p class="text-muted small mb-0">{{ user.email }}</p>
+                    </div>
+                    <span class="badge bg-{{ 'primary' if item.role_label=='관리자' else 'warning' if item.role_label=='연구책임자' else 'secondary' }}">
+                        {{ item.role_label }}
+                    </span>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <small class="text-muted">소속:</small>
+                        <small><strong>{{ user.org_name or '-' }}</strong></small>
+                    </div>
+                    {% if user.department %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <small class="text-muted">부서:</small>
+                        <small><strong>{{ user.department }}</strong></small>
+                    </div>
+                    {% endif %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <small class="text-muted">서명:</small>
+                        <small>
+                            {% if user.signature_path %}
+                                <span class="text-success"><i class="bi bi-check-circle"></i> 등록됨</span>
+                            {% else %}
+                                <span class="text-danger"><i class="bi bi-x-circle"></i> 미등록</span>
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <form method="POST" action="{{ url_for('admin.update_user_status', user_id=user.id) }}" class="flex-grow-1">
+                        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="pending" {{ 'selected' if user.status == 'pending' }}>대기</option>
+                            <option value="active" {{ 'selected' if user.status == 'active' }}>활성</option>
+                            <option value="suspended" {{ 'selected' if user.status == 'suspended' }}>정지</option>
+                        </select>
+                    </form>
+                    <button type="button" class="btn btn-sm btn-outline-primary" 
+                            data-bs-toggle="modal" data-bs-target="#editUserModal"
+                            data-id="{{ user.id }}" data-name="{{ user.name }}" data-email="{{ user.email }}"
+                            data-org="{{ user.org_name or '' }}" data-dept="{{ user.department or '' }}" data-admin="{{ '1' if user.is_admin else '0' }}">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent">
+                <span class="badge bg-{{ 'success' if user.status == 'active' else 'warning' if user.status == 'pending' else 'danger' }}">
+                    {{ '활성' if user.status == 'active' else '대기' if user.status == 'pending' else '정지' }}
+                </span>
+                <small class="text-muted ms-2">
+                    가입일: {{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}
+                </small>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div id="noResults" class="alert alert-info d-none">
+    <i class="bi bi-info-circle"></i> 검색 결과가 없습니다.
+</div>
 
 <!-- Add User Modal -->
 <div class="modal fade" id="addUserModal" tabindex="-1">
@@ -190,6 +248,57 @@ editUserModal?.addEventListener('show.bs.modal', function (event) {
     const isAdmin = button.getAttribute('data-admin') === '1';
     document.getElementById('edit_is_admin').checked = isAdmin;
 });
+
+// 검색 및 필터 기능
+function filterUsers() {
+    const searchTerm = document.getElementById('userSearch').value.toLowerCase();
+    const statusFilter = document.getElementById('statusFilter').value;
+    const roleFilter = document.getElementById('roleFilter').value;
+    
+    const userCards = document.querySelectorAll('.user-card');
+    let visibleCount = 0;
+    
+    userCards.forEach(card => {
+        const name = card.dataset.name || '';
+        const email = card.dataset.email || '';
+        const org = card.dataset.org || '';
+        const status = card.dataset.status || '';
+        const role = card.dataset.role || '';
+        
+        const matchesSearch = !searchTerm || 
+            name.includes(searchTerm) || 
+            email.includes(searchTerm) || 
+            org.includes(searchTerm);
+        
+        const matchesStatus = !statusFilter || status === statusFilter;
+        const matchesRole = !roleFilter || role === roleFilter;
+        
+        if (matchesSearch && matchesStatus && matchesRole) {
+            card.style.display = '';
+            visibleCount++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+    
+    const noResults = document.getElementById('noResults');
+    if (visibleCount === 0) {
+        noResults.classList.remove('d-none');
+    } else {
+        noResults.classList.add('d-none');
+    }
+}
+
+function resetFilters() {
+    document.getElementById('userSearch').value = '';
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('roleFilter').value = '';
+    filterUsers();
+}
+
+document.getElementById('userSearch')?.addEventListener('input', filterUsers);
+document.getElementById('statusFilter')?.addEventListener('change', filterUsers);
+document.getElementById('roleFilter')?.addEventListener('change', filterUsers);
 </script>
 {% endblock %}
 

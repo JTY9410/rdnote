@@ -308,10 +308,60 @@ def register():
         
         log_audit(user.id, 'USER_REGISTER', meta_json={'email': email, 'org_name': org_name})
         
-        flash('Registration successful. Please wait for administrator approval.', 'success')
-        return redirect(url_for('auth.login'))
+        # Redirect to pending page
+        return redirect(url_for('auth.pending', email=email))
     
     return render_template('auth/register.html')
+
+@auth_bp.route('/pending')
+def pending():
+    """회원가입 후 승인 대기 페이지"""
+    email = request.args.get('email', '')
+    return render_template('auth/pending.html', email=email)
+
+@auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """비밀번호 찾기 - 이메일로 임시 비밀번호 발송"""
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        
+        if not email:
+            flash('이메일을 입력해주세요.', 'error')
+            return render_template('auth/forgot_password.html')
+        
+        user = User.query.filter_by(email=email).first()
+        
+        if not user:
+            # 보안을 위해 존재하지 않는 이메일이어도 성공 메시지 표시
+            flash('입력하신 이메일로 비밀번호 재설정 안내를 발송했습니다.', 'success')
+            return redirect(url_for('auth.login'))
+        
+        if user.status != 'active':
+            flash('승인되지 않은 계정입니다. 관리자에게 문의해주세요.', 'error')
+            return render_template('auth/forgot_password.html')
+        
+        # 임시 비밀번호 생성
+        import secrets
+        import string
+        temp_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+        
+        # 비밀번호 업데이트
+        user.password_hash = hash_password(temp_password)
+        db.session.commit()
+        
+        # 이메일 발송 (실제 환경에서는 SMTP 설정 필요)
+        # 여기서는 로그로만 기록하고, 실제로는 이메일 발송 서비스 사용
+        current_app.logger.info(f"Password reset requested for {email}. Temp password: {temp_password}")
+        
+        # TODO: 실제 이메일 발송 구현
+        # send_password_reset_email(email, temp_password)
+        
+        flash(f'임시 비밀번호가 생성되었습니다. 관리자에게 문의하거나 로그를 확인하세요. (개발 환경: {temp_password})', 'success')
+        log_audit(user.id, 'PASSWORD_RESET', meta_json={'email': email})
+        
+        return redirect(url_for('auth.login'))
+    
+    return render_template('auth/forgot_password.html')
 
 @auth_bp.route('/logout')
 @login_required

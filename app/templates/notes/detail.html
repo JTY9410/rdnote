@@ -27,113 +27,158 @@
         background-color: #f0f8ff;
         cursor: pointer;
     }
+    .folder-status-card {
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        border: 2px solid #e9ecef;
+    }
+    .folder-status-card:hover {
+        border-color: #dc3545;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+    }
+    .table th {
+        font-weight: 600;
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+    .table td {
+        vertical-align: middle;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2 class="mb-0">
-            <i class="bi bi-journal-text"></i> {{ note.title }}
-        </h2>
-        <div class="mt-2">
-            {% if note.approval_stage == 'DRAFT' %}
-            <span class="badge bg-warning text-dark fs-6">
-                <i class="bi bi-hourglass-split"></i> 검토 대기
-            </span>
-            {% elif note.approval_stage == 'REVIEWED' %}
-            <span class="badge bg-info text-white fs-6">
-                <i class="bi bi-check-circle"></i> 검토자 확인 완료
-            </span>
-            {% elif note.approval_stage == 'APPROVED' %}
-            <span class="badge bg-success fs-6">
-                <i class="bi bi-shield-check"></i> 최종 승인
-            </span>
-            {% endif %}
-        </div>
-    </div>
-    <div>
-        {% if current_user.id == note.owner_user_id %}
-        <a href="{{ url_for('export.pdf', note_id=note.id) }}" class="btn btn-success">
-            <i class="bi bi-file-pdf"></i> PDF 출력
-        </a>
-        {% if note.reviewer_user_id and note.approval_stage == 'DRAFT' %}
-        <form method="POST" action="{{ url_for('notes.request_review', note_id=note.id) }}" style="display:inline">
-            <button type="submit" class="btn btn-warning">
-                <i class="bi bi-clipboard-check"></i> 검토 요청
-            </button>
-        </form>
-        {% endif %}
-        {% endif %}
-    </div>
-</div>
-
-<!-- 작성자/참여자 정보 -->
-<div class="mb-3">
-    <div class="row">
-        <div class="col-md-3">
-            <span class="badge bg-primary">OWNER: {{ note.owner_user.name }}</span>
-        </div>
-        <div class="col-md-3">
-            {% if note.reviewer_user_id %}
-            <span class="badge bg-info">REVIEWER: {{ note.reviewer_user.name if note.reviewer_user else '-' }}</span>
-            {% else %}
-            <span class="badge bg-secondary">REVIEWER: 미지정</span>
-            {% endif %}
-        </div>
-        <div class="col-md-6 text-end">
-            {% if current_user.id == note.owner_user_id %}
-            <form method="POST" action="{{ url_for('notes.approve', note_id=note.id) }}" style="display: inline;">
-                <button type="submit" class="btn btn-outline-primary btn-sm">
-                    <i class="bi bi-stamp"></i> 최종 승인
-                </button>
-            </form>
-            <a href="{{ url_for('export.pdf', note_id=note.id) }}" class="btn btn-success btn-sm">
-                <i class="bi bi-file-pdf"></i> PDF 출력
-            </a>
-            {% endif %}
-        </div>
-    </div>
-</div>
-
+<!-- 연구노트 헤더 -->
 <div class="card mb-4">
     <div class="card-body">
-        <h5>과제 정보</h5>
-        <p><strong>과제번호:</strong> {{ note.project_code or '-' }}</p>
-        <p><strong>책임자:</strong> {{ note.manager_name or '-' }}</p>
-        <p><strong>기간:</strong> {{ note.start_date.strftime('%Y-%m-%d') if note.start_date else '-' }} ~ {{ note.end_date.strftime('%Y-%m-%d') if note.end_date else '-' }}</p>
-        
-        <h5>참여자</h5>
-        <div class="mb-3">
-            {% for member in members %}
-            <span class="badge bg-{{ 'primary' if member.role == 'OWNER' else 'success' if member.role == 'WRITER' else 'info' if member.role == 'REVIEWER' else 'secondary' }}">{{ member.role }}</span>
-            {% endfor %}
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+                <h2 class="mb-2">
+                    <i class="bi bi-journal-text"></i> {{ note.title }}
+                </h2>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    {% set user_member = members|selectattr('user_id', 'equalto', current_user.id)|first %}
+                    {% if user_member %}
+                    <span class="badge bg-{% if user_member.role == 'OWNER' %}danger{% elif user_member.role == 'WRITER' %}primary{% elif user_member.role == 'REVIEWER' %}success{% else %}secondary{% endif %} fs-6">
+                        {% if user_member.role == 'OWNER' %}책임자
+                        {% elif user_member.role == 'WRITER' %}작성자
+                        {% elif user_member.role == 'REVIEWER' %}검토자
+                        {% else %}열람자{% endif %}
+                    </span>
+                    {% endif %}
+                    <span class="badge bg-{% if (note.approval_stage or 'DRAFT') == 'DRAFT' %}warning{% elif (note.approval_stage or 'DRAFT') == 'REVIEWED' %}info{% elif (note.approval_stage or 'DRAFT') == 'APPROVED' %}success{% else %}secondary{% endif %} fs-6 px-3 py-2">
+                        {% if (note.approval_stage or 'DRAFT') == 'DRAFT' %}
+                            <i class="bi bi-hourglass-split"></i> 검토 대기
+                        {% elif (note.approval_stage or 'DRAFT') == 'REVIEWED' %}
+                            <i class="bi bi-check-circle"></i> 검토자 확인 완료
+                        {% elif (note.approval_stage or 'DRAFT') == 'APPROVED' %}
+                            <i class="bi bi-shield-check"></i> 최종 승인
+                        {% else %}
+                            미설정
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            <div>
+                {% if user_member and user_member.role == 'OWNER' and (note.approval_stage or 'DRAFT') == 'DRAFT' and note.reviewer_user_id %}
+                <form method="POST" action="{{ url_for('notes.request_review', note_id=note.id) }}" style="display:inline">
+                    <button type="submit" class="btn btn-warning me-2">
+                        <i class="bi bi-clipboard-check"></i> 검토자 승인 요청
+                    </button>
+                </form>
+                {% endif %}
+                {% if user_member and user_member.role in ['OWNER', 'REVIEWER'] and (note.approval_stage or 'DRAFT') != 'APPROVED' %}
+                <button type="button" class="btn btn-{% if user_member.role == 'OWNER' %}success{% else %}info{% endif %} me-2" data-bs-toggle="modal" data-bs-target="#approveModal">
+                    <i class="bi bi-{% if user_member.role == 'OWNER' %}shield-check{% else %}clipboard-check{% endif %}"></i>
+                    {% if user_member.role == 'OWNER' %}최종 승인{% else %}검토 확인{% endif %}
+                </button>
+                {% endif %}
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#pdfExportModal">
+                    <i class="bi bi-file-pdf"></i> 연구노트 다운로드
+                </button>
+            </div>
         </div>
         
-        {% if current_user.id == note.owner_user_id %}
-        <div class="mt-3">
-            <a href="{{ url_for('export.pdf', note_id=note.id) }}" class="btn btn-success">PDF 출력</a>
-            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">설정</a>
+        <!-- OWNER/REVIEWER 서명 일시 표시 -->
+        {% if note.owner_user and note.owner_user.signature_path %}
+        <div class="mb-2">
+            <small class="text-muted">
+                <i class="bi bi-pen"></i> 책임자 서명: {{ note.owner_user.name }}
+                {% if (note.approval_stage or 'DRAFT') == 'APPROVED' %}
+                    (최종 승인 완료)
+                {% endif %}
+            </small>
         </div>
         {% endif %}
+        {% if note.reviewer_user and note.reviewer_user.signature_path and (note.approval_stage or 'DRAFT') in ['REVIEWED', 'APPROVED'] %}
+        <div class="mb-2">
+            <small class="text-muted">
+                <i class="bi bi-pen"></i> 검토자 서명: {{ note.reviewer_user.name if note.reviewer_user else '-' }}
+                {% if (note.approval_stage or 'DRAFT') in ['REVIEWED', 'APPROVED'] %}
+                    (검토 완료)
+                {% endif %}
+            </small>
+        </div>
+        {% endif %}
+        
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="border rounded p-2">
+                    <small class="text-muted d-block">책임자</small>
+                    <strong>{{ note.manager_name or (note.owner_user.name if note.owner_user else '-') }}</strong>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="border rounded p-2">
+                    <small class="text-muted d-block">과제번호</small>
+                    <strong>{{ note.project_code or '-' }}</strong>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="border rounded p-2">
+                    <small class="text-muted d-block">과제기간</small>
+                    <strong>
+                        {% if note.start_date and note.end_date %}
+                            {{ note.start_date.strftime('%Y.%m.%d') }} ~ {{ note.end_date.strftime('%Y.%m.%d') }}
+                        {% elif note.start_date %}
+                            {{ note.start_date.strftime('%Y.%m.%d') }} ~ 진행중
+                        {% else %}
+                            미설정
+                        {% endif %}
+                    </strong>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="border rounded p-2">
+                    <small class="text-muted d-block">연구파일수</small>
+                    <strong>{{ files|length }}개</strong>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<!-- 폴더 관리 및 파일 업로드 -->
-<div class="row mb-4">
+<!-- 좌우 레이아웃 -->
+<div class="row">
+    <!-- 좌측: 연구폴더리스트 -->
     <div class="col-md-3">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between">
-                <h5 class="mb-0"><i class="bi bi-folder"></i> 폴더</h5>
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-folder"></i> 연구폴더리스트</h5>
                 {% if can_write_note(current_user.id, note.id) %}
                 <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#newFolderModal">
-                    <i class="bi bi-plus"></i>
+                    <i class="bi bi-plus"></i> 생성
                 </button>
                 {% endif %}
             </div>
             <div class="list-group list-group-flush">
+                <button class="list-group-item list-group-item-action folder-item active" data-folder-id="all" onclick="filterByFolder(null)">
+                    <i class="bi bi-folder-fill text-primary"></i> 전체
+                    <span class="badge bg-primary float-end">{{ files|length }}</span>
+                </button>
                 {% for folder in folders %}
-                <button class="list-group-item list-group-item-action folder-item" data-folder-id="{{ folder.id }}">
+                <button class="list-group-item list-group-item-action folder-item" data-folder-id="{{ folder.id }}" onclick="filterByFolder({{ folder.id }})">
                     <i class="bi bi-folder-fill text-warning"></i> {{ folder.name }}
                     <span class="badge bg-secondary float-end">{{ folder.file_count }}</span>
                 </button>
@@ -141,151 +186,145 @@
             </div>
         </div>
         
-        <!-- 파일 업로드 버튼 -->
+        <!-- 연구파일추가 버튼 -->
         {% if can_write_note(current_user.id, note.id) %}
-        <div class="card mt-3">
+        <div class="card">
             <div class="card-body text-center">
                 <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                    <i class="bi bi-cloud-upload"></i> 파일 업로드
+                    <i class="bi bi-cloud-upload"></i> 연구파일 추가
                 </button>
             </div>
         </div>
         {% endif %}
     </div>
     
+    <!-- 우측: 연구폴더현황 및 연구파일정보 -->
     <div class="col-md-9">
-        <div class="upload-area" id="uploadArea">
-            <i class="bi bi-cloud-upload" style="font-size: 3rem; color: #6c757d;"></i>
-            <p>파일을 드래그 앤 드롭하거나 위 버튼을 클릭하여 업로드</p>
-            <input type="file" id="fileInput" multiple style="display: none;">
-        </div>
-    </div>
-</div>
-
-<!-- 파일 목록 -->
-<div class="card mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-files"></i> 파일 목록 ({{ files|length }})</h5>
-        <div>
-            <input type="text" class="form-control form-control-sm" id="fileSearch" placeholder="파일명 검색..." style="width: 200px; display: inline-block;">
-        </div>
-    </div>
-    <div class="card-body" id="fileList">
-        {% if files %}
-        {% for file in files %}
-        <div class="card mb-3 file-item" data-file-name="{{ file.display_name|lower }}">
+        <!-- 연구폴더현황 (정사각형 카드 형식) -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-folder-symlink"></i> 연구폴더 현황</h5>
+            </div>
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div class="flex-grow-1">
-                        <div class="mb-2">
-                            <i class="bi bi-file-earmark-fill text-primary"></i> 
-                            <strong>{{ file.display_name }}</strong>
-                            <span class="badge bg-primary ms-2">v{{ file.version_number }}</span>
-                            {% if file.tags %}
-                                {% for tag in file.tags %}
-                                <span class="badge bg-info" onclick="filterByTag('{{ tag.tag }}')" style="cursor: pointer;">
-                                    <i class="bi bi-tag"></i> {{ tag.tag }}
-                                </span>
-                                {% endfor %}
-                            {% endif %}
-                        </div>
-                        
-                        {% if file.short_desc %}
-                        <div class="mb-1">
-                            <i class="bi bi-info-circle text-muted"></i> 
-                            <small>{{ file.short_desc }}</small>
-                        </div>
-                        {% endif %}
-                        
-                        <div class="d-flex gap-3 mb-2">
-                            <small class="text-muted">
-                                <i class="bi bi-calendar"></i> 실험일: {{ file.created_date.strftime('%Y-%m-%d') }}
-                            </small>
-                            <small class="text-muted">
-                                <i class="bi bi-clock"></i> {{ file.uploaded_at.strftime('%Y-%m-%d %H:%M') }}
-                            </small>
-                            <small class="text-muted">
-                                <i class="bi bi-person"></i> {{ file.uploader_user.name if file.uploader_user else '-' }}
-                            </small>
-                        </div>
-                        
-                        <div class="mb-2">
-                            <small class="text-success">
-                                <i class="bi bi-shield-check"></i> 
-                                시점인증: {{ file.timestamp_certified_at.strftime('%Y-%m-%d %H:%M:%S') if file.timestamp_certified_at else '-' }}
-                            </small>
+                <div class="row g-3">
+                    {% for folder in folders %}
+                    <div class="col-md-4 col-lg-3">
+                        <div class="card text-center folder-status-card" style="aspect-ratio: 1; cursor: pointer;" onclick="filterByFolder({{ folder.id }})">
+                            <div class="card-body d-flex flex-column justify-content-center">
+                                <i class="bi bi-folder-fill text-warning" style="font-size: 3rem;"></i>
+                                <h6 class="mt-2 mb-1">{{ folder.name }}</h6>
+                                <span class="badge bg-primary">{{ folder.file_count }}개 파일</span>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div class="btn-group" role="group">
-                        <a href="{{ url_for('files.download', file_id=file.id) }}" class="btn btn-sm btn-primary">
-                            <i class="bi bi-download"></i> 다운로드
-                        </a>
-                        
-                        {% if can_write_note(current_user.id, note.id) %}
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
-                                <i class="bi bi-three-dots"></i>
-                            </button>
-                            <ul class="dropdown-menu">
-                                <li>
-                                    <a class="dropdown-item" href="#" onclick="showVersionHistory({{ file.id }}); return false;">
-                                        <i class="bi bi-clock-history"></i> 버전 히스토리
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="#" onclick="renameFile({{ file.id }}, '{{ file.display_name }}'); return false;">
-                                        <i class="bi bi-pencil"></i> 이름 변경
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="#" onclick="editFileTags({{ file.id }}, '{{ file.tags|map(attribute='tag')|join(', ') }}'); return false;">
-                                        <i class="bi bi-tags"></i> 태그 수정
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="#" onclick="uploadNewVersion({{ file.id }}); return false;">
-                                        <i class="bi bi-arrow-up-circle"></i> 새 버전 업로드
-                                    </a>
-                                </li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li>
-                                    <a class="dropdown-item text-danger" href="#" onclick="deleteFile({{ file.id }}, '{{ file.display_name }}'); return false;">
-                                        <i class="bi bi-trash"></i> 삭제
-                                    </a>
-                                </li>
-                            </ul>
-                        </div>
-                        {% endif %}
+                    {% endfor %}
+                    {% if not folders %}
+                    <div class="col-12">
+                        <p class="text-muted text-center">생성된 연구폴더가 없습니다.</p>
                     </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
-        {% endfor %}
-        {% else %}
-        <div class="text-center py-5">
-            <i class="bi bi-inbox" style="font-size: 4rem; color: #dee2e6;"></i>
-            <p class="text-muted mt-3">등록된 파일이 없습니다.</p>
-            {% if can_write_note(current_user.id, note.id) %}
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                <i class="bi bi-cloud-upload"></i> 파일 업로드
-            </button>
-            {% endif %}
+        
+        <!-- 연구파일정보 (테이블 형식) -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-files"></i> 연구파일정보</h5>
+                <input type="text" class="form-control form-control-sm" id="fileSearch" placeholder="파일명 검색..." style="width: 200px;">
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>파일명</th>
+                                <th>형식</th>
+                                <th>실험일<br><small class="text-muted">(사용자입력)</small></th>
+                                <th>기록시각<br><small class="text-muted">(시스템)</small></th>
+                                <th>작성자</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fileList">
+                            {% if files %}
+                            {% for file in files %}
+                            <tr class="file-item" data-file-name="{{ file.display_name|lower }}" data-folder-id="{{ file.folder_id }}">
+                                <td>
+                                    <i class="bi bi-file-earmark-fill text-primary"></i>
+                                    <strong>{{ file.display_name }}</strong>
+                                    <span class="badge bg-secondary ms-1">v{{ file.version_number }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ file.mime_type or 'N/A' }}</span>
+                                </td>
+                                <td>
+                                    <div>
+                                        <strong>{{ file.created_date.strftime('%Y-%m-%d') if file.created_date else '-' }}</strong>
+                                    </div>
+                                    <small class="text-muted">실험일</small>
+                                </td>
+                                <td>
+                                    <div>
+                                        <small class="text-success">
+                                            <i class="bi bi-shield-check"></i>
+                                            {{ file.timestamp_certified_at.strftime('%Y-%m-%d %H:%M:%S') if file.timestamp_certified_at else '-' }}
+                                        </small>
+                                    </div>
+                                    <small class="text-muted">시점인증</small>
+                                </td>
+                                <td>{{ file.uploader_user.name if file.uploader_user else '-' }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{{ url_for('files.detail', file_id=file.id) }}" class="btn btn-outline-primary" title="파일상세내역">
+                                            <i class="bi bi-info-circle"></i>
+                                        </a>
+                                        <a href="{{ url_for('files.download', file_id=file.id) }}" class="btn btn-outline-success" title="다운로드">
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                        {% if can_write_note(current_user.id, note.id) %}
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                                <i class="bi bi-three-dots"></i>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li>
+                                                    <a class="dropdown-item" href="#" onclick="renameFile({{ file.id }}, '{{ file.display_name }}'); return false;">
+                                                        <i class="bi bi-pencil"></i> 파일명수정
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item" href="#" onclick="moveFile({{ file.id }}); return false;">
+                                                        <i class="bi bi-arrow-right-circle"></i> 파일이동
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item" href="#" onclick="deleteFile({{ file.id }}, '{{ file.display_name }}'); return false;">
+                                                        <i class="bi bi-trash"></i> 파일삭제
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    등록된 파일이 없습니다.
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
-        {% endif %}
     </div>
 </div>
 
-<div class="card">
-    <div class="card-header">
-        <h5>활동 로그</h5>
-    </div>
-    <div class="card-body">
-        {% for log in audit_logs %}
-        <p><small>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</small> - {{ log.action_type }}</p>
-        {% endfor %}
-    </div>
-</div>
 
 <!-- 파일 업로드 Modal -->
 <div class="modal fade" id="uploadModal" tabindex="-1">
@@ -317,13 +356,23 @@
                             <tr>
                                 <th>파일명</th>
                                 <th>크기</th>
-                                <th>실험일 *</th>
+                                <th>실험일 *<br><small class="text-muted">(사용자입력)</small></th>
                                 <th>목적</th>
                                 <th>태그</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
                     </table>
+                    
+                    <div class="alert alert-info mt-3">
+                        <h6><i class="bi bi-info-circle"></i> 중요 안내</h6>
+                        <ul class="mb-0 small">
+                            <li><strong>실험일(사용자입력):</strong> 실제 실험/측정이 수행된 날짜를 입력하세요.</li>
+                            <li><strong>기록시각(시스템):</strong> 파일 업로드 시 서버 시간이 자동으로 기록됩니다 (시점인증).</li>
+                            <li><strong>시점인증:</strong> 업로드 순간의 서버 시간이 timestamp_certified_at에 기록되어 법적 증빙력이 있습니다.</li>
+                            <li>이 정보는 PDF로 제출될 수 있으며 위·변조 감시 대상입니다.</li>
+                        </ul>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
@@ -378,6 +427,154 @@
     </div>
 </div>
 
+<!-- 연구노트 다운로드 Modal -->
+<div class="modal fade" id="pdfExportModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="bi bi-file-pdf"></i> 연구노트 다운로드</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="mb-3">PDF 설정</h6>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">페이지방향</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="pageOrientation" id="orientationPortrait" value="portrait" checked>
+                                <label class="form-check-label" for="orientationPortrait">세로</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="pageOrientation" id="orientationLandscape" value="landscape">
+                                <label class="form-check-label" for="orientationLandscape">가로</label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">PDF 설정</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="pdfEncryption" id="encryptionOn" value="encrypted">
+                                <label class="form-check-label" for="encryptionOn">암호</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="pdfEncryption" id="encryptionOff" value="unencrypted" checked>
+                                <label class="form-check-label" for="encryptionOff">암호화 해제</label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">포함 옵션</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="includeCover" checked>
+                                <label class="form-check-label" for="includeCover">표지포함하기</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="includeCertificate" checked>
+                                <label class="form-check-label" for="includeCertificate">인증서 포함하기</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="includeComments" checked>
+                                <label class="form-check-label" for="includeComments">코멘트포함하기</label>
+                            </div>
+                        </div>
+                        
+                        {% if pdfEncryption == 'encrypted' %}
+                        <div class="mb-3" id="passwordSection">
+                            <label for="pdfPassword" class="form-label">PDF 비밀번호</label>
+                            <input type="password" class="form-control" id="pdfPassword" placeholder="비밀번호를 입력하세요">
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="mb-3">연구노트 미리보기</h6>
+                        <div class="border rounded p-3" style="min-height: 400px; background: #f8f9fa;">
+                            <div class="text-center text-muted">
+                                <i class="bi bi-file-pdf" style="font-size: 3rem;"></i>
+                                <p class="mt-2">PDF 미리보기</p>
+                                <small>연구노트: {{ note.title }}</small>
+                                <br><small>파일 수: {{ files|length }}개</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-success" onclick="downloadPDF()">
+                    <i class="bi bi-download"></i> 연구노트 다운로드
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 승인/검토 Modal -->
+{% set user_member = members|selectattr('user_id', 'equalto', current_user.id)|first %}
+{% if user_member and user_member.role in ['OWNER', 'REVIEWER'] %}
+<div class="modal fade" id="approveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-{% if user_member.role == 'OWNER' %}success{% else %}info{% endif %} text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-{% if user_member.role == 'OWNER' %}shield-check{% else %}clipboard-check{% endif %}"></i>
+                    {% if user_member.role == 'OWNER' %}최종 승인{% else %}검토 확인{% endif %}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('notes.approve', note_id=note.id) }}">
+                <div class="modal-body">
+                    {% if current_user.signature_path %}
+                    <div class="mb-3">
+                        <label class="form-label">전자서명 미리보기</label>
+                        <div class="border rounded p-3 text-center">
+                            {% if current_user.signature_path.startswith('http') %}
+                            <img src="{{ current_user.signature_path }}" alt="서명" style="max-width: 200px; max-height: 100px;">
+                            {% elif current_user.signature_path.startswith('/') %}
+                            <img src="{{ current_user.signature_path }}" alt="서명" style="max-width: 200px; max-height: 100px;">
+                            {% else %}
+                            <img src="/uploads/{{ current_user.signature_path.replace('uploads/', '') }}" alt="서명" style="max-width: 200px; max-height: 100px;">
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        전자서명이 등록되지 않았습니다. 프로필에서 서명을 등록해주세요.
+                    </div>
+                    {% endif %}
+                    
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <strong>경고:</strong> 현재 시각을 서명시각으로 기록하고 AuditLog에 남습니다. 이후 변경 불가능합니다. 계속할까요?
+                    </div>
+                    
+                    {% if user_member.role == 'OWNER' %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>이 승인으로 과제는 APPROVED 상태가 됩니다.</strong> 제출용 PDF는 책임자 승인본으로 간주됩니다.
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>이 검토로 과제는 REVIEWED 상태가 됩니다.</strong> 제3자 확인 흔적이 PDF에 포함됩니다.
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-{% if user_member.role == 'OWNER' %}success{% else %}info{% endif %}" {% if not current_user.signature_path %}disabled{% endif %}>
+                        <i class="bi bi-check-circle"></i> {% if user_member.role == 'OWNER' %}최종 승인{% else %}검토 확인{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- 파일 삭제 Modal -->
 <div class="modal fade" id="deleteFileModal" tabindex="-1">
     <div class="modal-dialog">
@@ -388,10 +585,11 @@
             </div>
             <form id="deleteFileForm">
                 <div class="modal-body">
-                    <div class="alert alert-warning">
+                    <div class="alert alert-danger">
                         <i class="bi bi-exclamation-triangle-fill"></i>
-                        <strong>경고:</strong> 삭제는 복구 불가능하며, 영구적으로 감사 로그에 기록됩니다.
-                        <br><small>연구개발일지는 장기 보존 의무 대상입니다. 삭제 시 법적 증빙력 상실 가능합니다.</small>
+                        <strong>중요 경고:</strong> 삭제는 복구 불가능하며, 영구적으로 감사 로그에 기록됩니다.
+                        <br><strong>전자연구노트는 장기간(수년~수십 년) 보존 의무가 있으며, 부주의한 삭제는 정부과제 감사, 특허 분쟁 시 불리하게 작용할 수 있습니다.</strong>
+                        <br><small>삭제는 복구 불가, AuditLog에 남으며 법적 리스크가 있습니다.</small>
                     </div>
                     <p>삭제할 파일: <strong id="deleteFileName"></strong></p>
                     <div class="mb-3">
@@ -430,6 +628,110 @@ window.filterByTag = function(tag) {
     document.getElementById('fileSearch').value = tag;
     document.getElementById('fileSearch').dispatchEvent(new Event('input'));
 };
+
+// 폴더별 필터링
+window.filterByFolder = function(folderId) {
+    const fileItems = document.querySelectorAll('.file-item');
+    fileItems.forEach(item => {
+        if (folderId === null || item.dataset.folderId == folderId) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    
+    // 폴더 선택 상태 업데이트
+    document.querySelectorAll('.folder-item').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.folderId == folderId) {
+            btn.classList.add('active');
+        }
+    });
+};
+
+// 파일 이동
+window.moveFile = function(fileId) {
+    // TODO: 파일 이동 모달 구현
+    alert('파일 이동 기능은 준비 중입니다.');
+};
+
+// 파일명 수정
+window.renameFile = function(fileId, currentName) {
+    const newName = prompt('새 파일명을 입력하세요:', currentName);
+    if (newName && newName !== currentName) {
+        fetch(`/files/${fileId}/rename`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({display_name: newName})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('파일명 변경 실패: ' + (data.error || '알 수 없는 오류'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('파일명 변경 중 오류가 발생했습니다.');
+        });
+    }
+};
+
+// PDF 다운로드
+window.downloadPDF = function() {
+    const orientation = document.querySelector('input[name="pageOrientation"]:checked').value;
+    const encryption = document.querySelector('input[name="pdfEncryption"]:checked').value;
+    const includeCover = document.getElementById('includeCover').checked;
+    const includeCertificate = document.getElementById('includeCertificate').checked;
+    const includeComments = document.getElementById('includeComments').checked;
+    const password = document.getElementById('pdfPassword')?.value || '';
+    
+    // Build URL with parameters
+    let url = `{{ url_for('export.pdf', note_id=note.id) }}?`;
+    url += `orientation=${orientation}`;
+    url += `&encryption=${encryption}`;
+    url += `&include_cover=${includeCover}`;
+    url += `&include_certificate=${includeCertificate}`;
+    url += `&include_comments=${includeComments}`;
+    if (encryption === 'encrypted' && password) {
+        url += `&password=${encodeURIComponent(password)}`;
+    }
+    
+    // Download PDF
+    window.location.href = url;
+    
+    // Close modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('pdfExportModal'));
+    modal.hide();
+};
+
+// Show password section when encryption is selected
+document.querySelectorAll('input[name="pdfEncryption"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const passwordSection = document.getElementById('passwordSection');
+        if (this.value === 'encrypted') {
+            if (!passwordSection) {
+                const mb3 = document.querySelector('#encryptionOff').closest('.mb-3');
+                const newSection = document.createElement('div');
+                newSection.className = 'mb-3';
+                newSection.id = 'passwordSection';
+                newSection.innerHTML = `
+                    <label for="pdfPassword" class="form-label">PDF 비밀번호</label>
+                    <input type="password" class="form-control" id="pdfPassword" placeholder="비밀번호를 입력하세요">
+                `;
+                mb3.after(newSection);
+            } else {
+                passwordSection.style.display = 'block';
+            }
+        } else {
+            if (passwordSection) {
+                passwordSection.style.display = 'none';
+            }
+        }
+    });
+});
 
 // 파일 삭제
 window.deleteFile = function(fileId, fileName) {

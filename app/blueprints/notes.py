@@ -14,6 +14,53 @@ import os
 
 notes_bp = Blueprint('notes', __name__)
 
+@notes_bp.route('/')
+@login_required
+def index():
+    """연구노트 목록 페이지"""
+    from app.models.research_note import ResearchNoteMember as RNMember
+    from app.models.folder import Folder
+    from app.models.user import User
+    
+    # Get user's notes
+    notes = db.session.query(ResearchNote).join(
+        RNMember,
+        (ResearchNote.id == RNMember.note_id) &
+        (RNMember.user_id == current_user.id)
+    ).filter(ResearchNote.deleted_at.is_(None)).order_by(ResearchNote.created_at.desc()).all()
+    
+    # Enrich notes with additional data
+    notes_data = []
+    for note in notes:
+        # Get owner
+        owner = User.query.get(note.owner_user_id) if note.owner_user_id else None
+        
+        # Get user's role in this note
+        user_member = RNMember.query.filter_by(note_id=note.id, user_id=current_user.id).first()
+        user_role = user_member.role if user_member else None
+        
+        # Ensure approval_stage has a default value
+        if not hasattr(note, 'approval_stage') or note.approval_stage is None:
+            note.approval_stage = 'DRAFT'
+        
+        # Count files
+        files_count = File.query.filter_by(note_id=note.id, is_deleted=False).count()
+        
+        # Count members
+        members_count = RNMember.query.filter_by(note_id=note.id).count()
+        
+        notes_data.append({
+            'note': note,
+            'owner': owner,
+            'user_role': user_role,
+            'files_count': files_count,
+            'members_count': members_count
+        })
+    
+    return render_template('notes/index.html',
+                         notes_data=notes_data,
+                         datetime=datetime)
+
 @notes_bp.post('/<int:note_id>/favorite')
 @login_required
 def favorite(note_id):
@@ -47,8 +94,9 @@ def new():
         manager_name = request.form.get('manager_name')
         start_date = request.form.get('start_date')
         end_date = request.form.get('end_date')
-        allow_writer_delete = request.form.get('allow_writer_delete') == 'on'
-        allow_member_download = request.form.get('allow_member_download') == 'on'
+        # Handle radio button values (true/false strings)
+        allow_writer_delete = request.form.get('allow_writer_delete') == 'true' or request.form.get('allow_writer_delete') == 'on'
+        allow_member_download = request.form.get('allow_member_download') == 'true' or request.form.get('allow_member_download') == 'on'
         
         # Get members from workspace
         from app.models.workspace import WorkspaceMember as WSMember
@@ -72,7 +120,8 @@ def new():
             start_date=datetime.strptime(start_date, '%Y-%m-%d').date() if start_date else None,
             end_date=datetime.strptime(end_date, '%Y-%m-%d').date() if end_date else None,
             allow_writer_delete=allow_writer_delete,
-            allow_member_download=allow_member_download
+            allow_member_download=allow_member_download,
+            approval_stage='DRAFT'  # 기본값: DRAFT
         )
         db.session.add(note)
         db.session.flush()
@@ -109,6 +158,14 @@ def detail(note_id):
     if not can_access_note(current_user.id, note_id):
         flash('Access denied.', 'error')
         return redirect(url_for('dashboard.index'))
+    
+    # Ensure approval_stage has a default value
+    if not hasattr(note, 'approval_stage') or note.approval_stage is None:
+        note.approval_stage = 'DRAFT'
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
     
     # Get folders
     folders = Folder.query.filter_by(note_id=note_id, deleted_at=None).order_by(Folder.order_index).all()
@@ -209,7 +266,7 @@ def approve(note_id):
     
     # Update approval stage based on role
     signed_at = datetime.utcnow()
-    stage_before = note.approval_stage
+    stage_before = getattr(note, 'approval_stage', None) or 'DRAFT'
     
     if member.role == 'REVIEWER':
         # REVIEWER approves → stage becomes REVIEWED (minimum)
@@ -219,6 +276,8 @@ def approve(note_id):
         # OWNER approves → stage becomes APPROVED
         note.approval_stage = 'APPROVED'
         stage_after = 'APPROVED'
+    else:
+        stage_after = stage_before
     
     db.session.commit()
     
@@ -242,7 +301,7 @@ def request_review(note_id):
     if note.owner_user_id != current_user.id or not getattr(note, 'reviewer_user_id', None):
         flash('검토 요청은 책임자만 가능하며, 검토자가 지정되어야 합니다.', 'error')
         return redirect(url_for('notes.detail', note_id=note_id))
-    prev = note.approval_stage
+    prev = getattr(note, 'approval_stage', None) or 'DRAFT'
     note.approval_stage = 'REVIEWED'
     db.session.commit()
     log_audit(current_user.id, 'REVIEW_REQUEST', note_id=note_id,

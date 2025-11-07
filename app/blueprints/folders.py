@@ -10,6 +10,22 @@ from datetime import datetime
 
 folders_bp = Blueprint('folders', __name__)
 
+@folders_bp.route('/notes/<int:note_id>/folders', methods=['GET'])
+@login_required
+def list_folders(note_id):
+    """Get list of folders for a note"""
+    from app.utils.permissions import can_access_note
+    
+    # Check access
+    if not can_access_note(current_user.id, note_id):
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    folders = Folder.query.filter_by(note_id=note_id, deleted_at=None).order_by(Folder.order_index).all()
+    
+    return jsonify({
+        'folders': [{'id': f.id, 'name': f.name, 'order_index': f.order_index} for f in folders]
+    }), 200
+
 @folders_bp.route('/notes/<int:note_id>/folders', methods=['POST'])
 @login_required
 def create(note_id):

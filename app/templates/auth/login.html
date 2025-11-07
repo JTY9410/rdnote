@@ -163,18 +163,32 @@
                             <i class="bi bi-box-arrow-in-right"></i> 로그인
                         </button>
                         
-                        <div class="mt-4 text-center">
-                            <a href="{{ url_for('auth.register') }}" class="btn btn-outline-primary w-100">
+                        <div class="mt-4 d-flex gap-2">
+                            <a href="{{ url_for('auth.register') }}" class="btn btn-outline-primary flex-fill">
                                 <i class="bi bi-person-plus"></i> 회원가입
+                            </a>
+                            <a href="{{ url_for('auth.forgot_password') }}" class="btn btn-outline-secondary flex-fill">
+                                <i class="bi bi-key"></i> 비밀번호 찾기
                             </a>
                         </div>
                     </form>
                     
                     <div class="login-footer">
+                        <div class="alert alert-warning border-warning mb-3">
+                            <div class="d-flex align-items-start">
+                                <i class="bi bi-exclamation-triangle-fill text-warning me-2" style="font-size: 1.2rem;"></i>
+                                <div>
+                                    <strong>법적 증빙 기록 시스템 안내</strong><br>
+                                    <small>이 시스템은 연구활동의 법적 증빙 기록 시스템입니다. 허위 기록 / 계정 공유 / 무단 반출은 감사 대상입니다.</small>
+                                </div>
+                            </div>
+                        </div>
                         <div class="alert alert-light border">
                             <small class="text-muted">
                                 <i class="bi bi-shield-check"></i> 안전한 연구 데이터 관리<br>
-                                <i class="bi bi-file-lock"></i> 법적 효력 보장
+                                <i class="bi bi-file-lock"></i> 법적 효력 보장<br>
+                                <i class="bi bi-info-circle"></i> 비밀번호 분실 시 관리자에게 문의<br>
+                                <i class="bi bi-lock-fill"></i> 공용PC 사용 후 반드시 로그아웃
                             </small>
                         </div>
                         <small class="text-muted d-block mt-3">

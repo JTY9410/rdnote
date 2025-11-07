@@ -393,12 +393,28 @@ def audit():
     
     logs = query.order_by(AuditLog.created_at.desc()).limit(100).all()
     
+    # Format meta_json for display
+    import json
+    formatted_logs = []
+    for log in logs:
+        log_dict = {
+            'id': log.id,
+            'user_id': log.user_id,
+            'user': log.user,
+            'action_type': log.action_type,
+            'note_id': log.note_id,
+            'file_id': log.file_id,
+            'created_at': log.created_at,
+            'meta_json': json.dumps(log.meta_json, indent=2, ensure_ascii=False) if log.meta_json else None
+        }
+        formatted_logs.append(type('Log', (), log_dict)())
+    
     # Log admin access
     log_audit(current_user.id, 'ADMIN_VIEW_AUDIT', meta_json={
         'from_date': from_date, 'to_date': to_date
     })
     
-    return render_template('admin/audit.html', logs=logs)
+    return render_template('admin/audit.html', logs=formatted_logs)
 
 @admin_bp.route('/audit/export/csv')
 def audit_csv():

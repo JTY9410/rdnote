@@ -455,14 +455,22 @@
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <span class="navbar-text me-3">{{ current_user.name }}</span>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('help.index') }}">도움말</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('auth.logout') }}">로그아웃</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <span class="me-2">{{ current_user.name }}</span>
+                            <span class="badge bg-{% if current_user.is_admin %}danger{% elif current_user.department %}primary{% else %}secondary{% endif %}">
+                                {% if current_user.is_admin %}관리자
+                                {% elif current_user.department == '연구책임자' or current_user.department == '책임연구원' %}연구책임자
+                                {% elif current_user.department == '연구원' %}연구원
+                                {% else %}사용자{% endif %}
+                            </span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{{ url_for('profile.index') }}"><i class="bi bi-person"></i> 프로필</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('help.index') }}"><i class="bi bi-question-circle"></i> 도움말</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right"></i> 로그아웃</a></li>
+                        </ul>
                     </li>
                 </ul>
             </div>
